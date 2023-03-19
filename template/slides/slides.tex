@@ -1,0 +1,31 @@
+\documentclass{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage{academicons}
+\usepackage{fontawesome}
+\usetheme{Madrid}
+\usecolortheme{default}
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+  
+\title{$title$}
+\subtitle{$subtitle$}
+\author{$author$}
+\institute{$university$}
+\date{$date$}
+
+$if(highlighting-macros)$
+$highlighting-macros$
+$endif$
+
+\begin{document}
+\maketitle
+$body$
+%\setbeamercolor{background canvas}{bg=violet}
+\begin{frame}[plain]
+\begin{center}
+  \faEnvelope $email$\\
+  \vspace{1cm}
+  \faGithub \href{$github$}{$github$}
+\end{center}
+\end{frame}
+\end{document}
