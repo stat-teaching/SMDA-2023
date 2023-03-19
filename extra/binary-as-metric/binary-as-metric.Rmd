@@ -1,0 +1,192 @@
+---
+title: "Title"
+subtitle: "Subtitle"
+author: "Filippo Gambarota"
+output: 
+        rmdformats::robobook:
+            toc_float: true
+            use_bookdown: true
+            lightbox: true
+            number_sections: false
+            css: !expr here::here('template', 'extra', 'extra.css')
+            highlight_downlit: true
+            df_print: paged
+bibliography: "https://raw.githubusercontent.com/filippogambarota/bib-database/main/references.bib"
+csl: "https://raw.githubusercontent.com/citation-style-language/styles/master/apa-6th-edition.csl"
+date: "202x-202x"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      message = FALSE,
+                      warning = FALSE)
+# Register an inline hook:
+knitr::knit_hooks$set(inline = function(x) {
+  x <- sprintf("%1.2f", x)
+  paste(x, collapse = ", ")
+})
+```
+
+```{r packages, echo = FALSE}
+library(tidyverse)
+library(lme4)
+library(effects)
+```
+
+```{r funs, echo = FALSE}
+odds <- function(p){
+    p / (1 - p)
+}
+
+or_to_d <- function(or){
+    (sqrt(3) * log(or)) / pi
+}
+```
+
+# Introduction
+
+In this report I show why analyzing binary data (e.g., accuracy) with standard general linear models (e.g., linear regression, t-test, etc.) is not a good idea.
+
+# Data
+
+Let's simulate here some data. We simulate a situation where 30 participants perform a computer task in two conditions ("a" and "b"). For each condition we have 50 trials and we measured the accuracy. We are simulating a multilevel logistic regression with random intercepts.
+
+```{r sim-setup}
+ns <- 30 # number of participants
+nt <- 50 # number of trials
+
+acc_a <- 0.6 # accuracy for condition a
+acc_b <- 0.75 # accuracy for condition b
+
+tau_id <- 0.2 # standard deviation of intercepts 
+b0 <- qlogis(acc_a) # logit scale, accuracy condition a
+b1 <- log(odds(acc_b) / odds(acc_a)) # odds ratio i.e. difference between a and b
+```
+
+The only tricky parameter is `tau_id`. We simulated it on the logit scale thus is not easy to understand the impact on the simulation. We can just simulate several values using `tau_id` and see the predicted range.
+
+```{r tau-impact}
+b0s <- plogis(b0 + rnorm(1e5, 0, tau_id))
+hist(b0s, main = expression(paste("Impact of ", tau, " on simulated values")))
+```
+
+Now we can create the data structure for the simulation:
+
+```{r}
+b0i <- rnorm(ns, 0, tau_id) # random intercepts
+sim <- expand_grid(id = 1:ns, cond = c("a", "b"))
+sim$cond_e <- ifelse(sim$cond == "a", 0, 1) # treatment coding
+sim$b0i <- b0i[sim$id]
+sim$lp <- with(sim, b0 + b0i + b1 * cond_e) # linear predictor
+sim$p <- plogis(sim$lp) # probability
+sim$nc <- rbinom(nrow(sim), nt, sim$p) # number of correct responses
+sim$nf <- nt - sim$nc # number of errors
+
+sim
+```
+
+Now we can fit a multilevel logistic regression using the `lme4::glmer()` function:
+
+```{r}
+fit <- glmer(cbind(nc, nf) ~ cond + (1|id), 
+             dat = sim, 
+             family = binomial(link = "logit"))
+summary(fit)
+```
+
+Let's plot the model effects:
+
+```{r}
+plot(allEffects(fit), xlab = "Condition", ylab = "Accuracy", main = "Condition effect plot")
+```
+
+Let's plot individual probabilities:
+
+```{r}
+sim$pred <- predict(fit, type = "response") # prediction on the prob scale
+
+ggplot(sim,
+       aes(x = cond, y = pred, group = id, color = cond)) +
+    geom_line(position = position_jitter(width = 0.1, seed = 111),
+              color = "black") +
+    geom_point(position = position_jitter(width = 0.1, seed = 111),
+               size = 4) +
+    ggthemes::theme_par(base_size = 15) +
+    xlab("Condition") +
+    ylab("Probability") +
+    ggtitle("Predicted probabilities")
+```
+
+As you can see, all the predictions are on the 0-1 scale and this is the reason why the logistic regression is the appropriate model when using binary data. Let's see what happens when we fit a standard general linear model:
+
+```{r}
+sim$acc <- with(sim, nc / (nc + nf)) # accuracy
+fit_lm <- lmer(acc ~ cond + (1|id), data = sim)
+```
+
+## Effect size
+
+When using the logistic regression, regression parameters can be directly interpreted as effect size measures. For example, the $\beta_1$ parameter of `fit` model is `r exp(fixef(fit)[2])` (odds-ratio scale). This means that being in the condition "b" increase the odds of success (accuracy of correctly responding during the task) `r exp(fixef(fit)[2])` times. Odds and odds ratios are not always easy to interpret. For this reason we can directly compute predicted proababilities that are themselfs directly intepretable in terms of effect sizes. For example the predicted probability for condition "a" is `r plogis(fixef(fit)[1])` and for condition "b" is `r plogis(fixef(fit)[1] + fixef(fit)[2])`. We could also compute a probability ratio where the accuracy of condition "b" is `r (plogis(fixef(fit)[1] + fixef(fit)[2])) / plogis(fixef(fit)[1])` times higher than condition "a". Finally we can convert an odds ratio into Cohen's $d$ using the formula by Sánchez-Meca and colleagues [@Sanchez-Meca2003-ht]. The Cohen's $d$ is `r or_to_d(exp(fixef(fit)[2]))`.
+
+If we ignore the binary nature of our variable we can calculate a standard Cohen's $d$ using accuracy values.
+
+```{r}
+effectsize::cohens_d(acc ~ cond, data = sim)
+```
+
+Clearly, the Cohen's $d$ computed from the general linear model is completely misleading.
+
+## Out of bound prediction
+
+Another commonly ignored problem of using a general linear model with binary outcomes is predicting impossible values. Let's consider a situation where participants performed several trials and we predicted the accuracy using a numeric predictor e.g., participant's age.
+
+```{r}
+b0 <- 0.84 # accuracy for average age ~ 0.84 ~ qlogis(0.7)
+b1 <- 0.05 # increase in the log odds of accuracy for unit increase in age
+age <- round(runif(ns, 20, 40))
+b0i <- rnorm(ns, 0, tau_id) # random intercepts
+sim <- data.frame(id = 1:ns, age = age, b0i = b0i)
+sim$age0 <- sim$age - mean(sim$age) # centering
+sim$p <- plogis(b0 + sim$b0i + b1 * sim$age0)
+sim$nc <- rbinom(nrow(sim), nt, sim$p) # number of correct responses
+sim$nf <- nt - sim$nc # number of errors
+```
+
+Let's fit the model:
+
+```{r}
+fit <- glmer(cbind(nc, nf) ~ age0 + (1|id), data = sim, family = binomial(link = "logit"))
+summary(fit)
+plot(allEffects(fit))
+```
+
+Now we can use the model to predict the accuracy of a new participant with an age out of the previous range. The maximum age of the simulation was 40, with a centered value of ~10. Let's predict a value of 20, 30 and 50 (on the centered scale)
+
+```{r}
+predict(fit, data.frame(age0 = c(20, 30, 50)), re.form = NA, type = "response")
+```
+
+Clearly the model is taking into account that the probability cannot be higher than 1 thus the effect is increasing and reaching a plateau. Let's see what happens with the general linear model.
+
+```{r}
+sim$acc <- with(sim, nc / (nc + nf))
+fit_lm <- lm(acc ~ age0, data = sim)
+summary(fit_lm)
+plot(allEffects(fit_lm))
+```
+
+And now we can check the predicted values
+
+```{r}
+predict(fit_lm, data.frame(age0 = c(20, 30, 50)))
+```
+
+Clearly the model is predicting impossible values.
+
+# Packages
+
+```{r, echo = FALSE, results='asis'}
+report::cite_packages()
+```
+
+# References
