@@ -2,25 +2,54 @@
 \usepackage[utf8]{inputenc}
 \usepackage{academicons}
 \usepackage{fontawesome}
-\usetheme{Madrid}
-\usecolortheme{default}
+
 \providecommand{\tightlist}{%
   \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
   
-\title{$title$}
-\subtitle{$subtitle$}
-\author{$author$}
-\institute{$university$}
-\date{$date$}
-
 $if(highlighting-macros)$
 $highlighting-macros$
 $endif$
 
+
+\title{$title$}
+\subtitle{$subtitle$}
+\author{$author$}
+\institute{@$university$}
+\date{$date$}
+
+\mode<presentation>
+{
+  \usetheme{Madrid}      % or try Darmstadt, Madrid, Warsaw, ...
+  \usecolortheme{default} % or try albatross, beaver, crane, ...
+  \usefonttheme{default}  % or try serif, structurebold, ...
+  \setbeamertemplate{navigation symbols}{}
+  \setbeamertemplate{caption}[numbered]
+} 
+
+\usepackage[english]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+
+\AtBeginSection[]
+{
+    \begin{frame}
+        \frametitle{Table of Contents}
+        \tableofcontents[currentsection]
+    \end{frame}
+}
+
 \begin{document}
-\maketitle
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{Outline}
+\tableofcontents
+\end{frame}
+
 $body$
-%\setbeamercolor{background canvas}{bg=violet}
+
 \begin{frame}[plain]
 \begin{center}
   \faEnvelope $email$\\
@@ -28,4 +57,6 @@ $body$
   \faGithub \href{$github$}{$github$}
 \end{center}
 \end{frame}
+\end{document}
+
 \end{document}
