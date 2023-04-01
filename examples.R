@@ -6,7 +6,6 @@ odds <- function(p){
     p / (1 - p)
 }
 
-
 difficulty <- rep(0:7, each = 5000)
 
 b0 <- qlogis(0.95)

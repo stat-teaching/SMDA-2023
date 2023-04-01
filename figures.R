@@ -5,7 +5,7 @@
 b0 <- qlogis(0.01)
 b1 <- 0.1
 
-x <- runif(100, 0, 100)
+x <- rep(seq(0, 100, 10), each = 10)
 p <- plogis(b0 + b1*x)
 y <- rbinom(length(x), 1, p)
 
