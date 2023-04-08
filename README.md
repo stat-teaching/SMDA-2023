@@ -11,5 +11,7 @@ Developmental Psychology” at the University of Padova.
 
 # Contents
 
-- intro: [Rmd](slides//intro/intro.Rmd), [PDF](slides//intro/intro.pdf)
-- prova: [Rmd](slides//prova/prova.Rmd), [PDF](slides//prova/prova.pdf)
+- **intro**: [Rmd](slides//intro/intro.Rmd),
+  [PDF](slides//prova/prova.pdf)
+- **prova**: [Rmd](slides//prova/prova.Rmd),
+  [PDF](slides//prova/prova.pdf)

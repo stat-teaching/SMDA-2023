@@ -3,21 +3,21 @@
 \usepackage{academicons}
 \usepackage{fontawesome}
 
+% fix ! LaTeX Error: Environment Shaded undefined.
+$if(highlighting-macros)$
+$highlighting-macros$
+$endif$
+
+% fix <recently read> \tightlist 
 \providecommand{\tightlist}{%
   \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
-  
-% $if(highlighting-macros)$
-% $highlighting-macros$
-% $endif$
 
-% fixing csl error
 \newlength{\cslhangindent}
 \setlength{\cslhangindent}{1.5em}
 \newenvironment{CSLReferences}%
 {\setlength{\parindent}{0pt}%
 \everypar{\setlength{\hangindent}{\cslhangindent}}\ignorespaces}%
 {\par}
-% fixing csl error
 
 \title{$title$}
 \subtitle{$subtitle$}
@@ -25,36 +25,11 @@
 \institute{@$university$}
 \date{$date$}
 
-\mode<presentation>
-{
-  \usetheme{Madrid}      % or try Darmstadt, Madrid, Warsaw, ...
-  \usecolortheme{default} % or try albatross, beaver, crane, ...
-  \usefonttheme{default}  % or try serif, structurebold, ...
-  \setbeamertemplate{navigation symbols}{}
-  \setbeamertemplate{caption}[numbered]
-} 
-
-\usepackage[english]{babel}
-\usepackage[utf8]{inputenc}
-\usepackage[T1]{fontenc}
-
-% \AtBeginSection[]
-% {
-%     \begin{frame}
-%         \frametitle{Table of Contents}
-%         \tableofcontents[currentsection]
-%     \end{frame}
-% }
-% 
 \begin{document}
 
 \begin{frame}
   \titlepage
 \end{frame}
-
-% \begin{frame}{Outline}
-% \tableofcontents
-% \end{frame}
 
 $body$
 

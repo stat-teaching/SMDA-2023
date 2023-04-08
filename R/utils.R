@@ -202,3 +202,44 @@ ggnorm <- function(mean, sd){
         xlim(range)
 }
 
+# get the probability at the numerator
+# of an odds ratio given the probability
+# at the denominator and the desired odds
+# ratio
+
+pn_from_or <- function(pd, or){
+    (or * pd) / ((or - 1) * (pd + 1))
+}
+
+# nicer contingency table
+ctable <- function(y, x){
+    xname <- deparse(substitute(x))
+    yname <- deparse(substitute(y))
+    xname <- ifelse(grepl("$", xname),
+                    gsub("(.*)\\$", "", xname))
+    yname <- ifelse(grepl("$", yname),
+                    gsub("(.*)\\$", "", yname))
+    ct <- as.matrix(table(y, x))
+    dmn <- dimnames(ct)
+    names(dmn) <- c(yname, xname)
+    dimnames(ct) <- dmn
+    ct
+}
+
+ctable2df <- function(ct){
+    df <- data.frame(ct)
+    names(df)[length(names(df))] <- "n"
+    df
+}
+
+
+pdiff <- function(p1, p2, n1, n2 = NULL){
+    if(is.null(n2)){
+        n2 <- n1 
+    }
+    pd <- p1 - p2
+    se <- sqrt((p1 * (1 - p1))/n1 + (p2 * (1 - p2))/n2)
+    ci <- pd + se * qnorm(c(0.025, 0.975))
+    cat(sprintf("p1 - p2 = %.3f (SE = %.3f)\n95%% CI = [%.3f, %.3f])",
+                pd, se, ci[1], ci[2]))
+}

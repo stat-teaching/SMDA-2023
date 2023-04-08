@@ -3,20 +3,52 @@ title: "Title"
 subtitle: "Subtitle"
 author: "Filippo Gambarota"
 date: "2022-2023"
-university: "@University of Padova"
+university: "University of Padova"
 email: "filippo.gambarota@unipd.it"
 github: "github.com/filippogambarota"
 bibliography: "https://raw.githubusercontent.com/filippogambarota/bib-database/main/references.bib"
 csl: "https://raw.githubusercontent.com/citation-style-language/styles/master/apa-6th-edition.csl"
+header-includes:
+    - \usepackage{booktabs}
+    - \usepackage{longtable}
+    - \usepackage{array}
+    - \usepackage{multirow}
+    - \usepackage{wrapfig}
+    - \usepackage{float}
+    - \usepackage{colortbl}
+    - \usepackage{pdflscape}
+    - \usepackage{tabu}
+    - \usepackage{threeparttable}
+    - \usepackage{csquotes}
+    - \usepackage{makecell}
+    - \AtBeginSubsection{}
+    - \AtBeginSection{}
 output:
-  beamer_presentation:
-    template: !expr here::here('template', 'slides', 'slides.tex')
-    keep_tex: true
-    latex_engine: xelatex
+    beamer_presentation:
+        incremental: false
+        slide_level: 2
+        template: !expr here::here('template', 'slides', 'slides.tex')
+        keep_tex: true
+        latex_engine: xelatex
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, dev = "pdf")
+knitr::opts_chunk$set(echo = FALSE, 
+                      dev = "pdf", 
+                      fig.align = "center",
+                      out.width = "80%",
+                      fig.width = 7,
+                      message = FALSE, 
+                      warning = FALSE)
+```
+
+```{r packages}
+library(tidyverse)
+library(distributional)
+library(ggdist)
+library(patchwork)
+library(kableExtra)
+devtools::load_all()
 ```
 
 ## R Markdown

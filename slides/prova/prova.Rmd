@@ -3,29 +3,42 @@ title: "Title"
 subtitle: "Subtitle"
 author: "Filippo Gambarota"
 date: "2022-2023"
-university: "University of Padova"
-email: "filippo.gambarota@unipd.it"
-github: "github.com/filippogambarota"
 bibliography: "https://raw.githubusercontent.com/filippogambarota/bib-database/main/references.bib"
-csl: "https://raw.githubusercontent.com/citation-style-language/styles/master/apa-6th-edition.csl"
 output:
-  beamer_presentation:
-    template: !expr here::here('template', 'slides', 'slides.tex')
-    keep_tex: true
-    latex_engine: xelatex
+    beamer_presentation:
+        incremental: false
+        theme: madrid
+        latex_engine: xelatex
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, dev = "pdf")
+knitr::opts_chunk$set(echo = FALSE, 
+                      dev = "pdf", 
+                      fig.align = "center",
+                      out.width = "80%",
+                      fig.width = 7,
+                      message = FALSE, 
+                      warning = FALSE)
+```
+
+```{r packages}
+library(tidyverse)
+library(distributional)
+library(ggdist)
+library(patchwork)
+library(kableExtra)
+devtools::load_all()
 ```
 
 # Sezione 1
 
 ## R Markdown
 
-This is an R Markdown presentation. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+This is an R Markdown presentation. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more [@Zhang2012-br] details on using R Markdown see [@Williams2004-lp] <http://rmarkdown.rstudio.com>.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document.
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. [@Wierzchon2016-fk]
+
+# Sezione 2
 
 ## Slide with Bullets
 
@@ -44,3 +57,5 @@ summary(cars)
 ```{r pressure, fig.cap = "ciao", out.width="50%"}
 plot(pressure)
 ```
+
+## References

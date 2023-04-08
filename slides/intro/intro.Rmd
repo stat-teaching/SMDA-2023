@@ -521,3 +521,53 @@ delta <- invlogit(b[1] + b[2] * 0 + b[3]*wells$arsenic + b[4]*wells$educ) -
 mean(delta)
 ```
 
+## Residuals
+
+Residuals can be defined as in linear regression:
+
+$$
+r_i = y_i - \hat y_i = y_i - logit^{-1}(\hat y)
+$$
+
+But they will be discrete. If $logit^{-1}(\hat y) = 0.6$, the actual values could be 0 or 1 thus $y_i - \hat y_i = 0.4$
+
+## Binned residuals
+
+Instead, we plot binned residuals by dividing the data into categories (bins) based on their fitted
+values, and then plotting the average residual versus the average fitted value for each bin
+
+```{r}
+result <- performance::binned_residuals(fit, n_bins = 50)
+```
+
+
+## Error rate and comparison to the null model
+
+The error rate is defined as the proportion of cases for which the deterministic prediction (i.e, guessing $yi = 1$ if $logit^{-1}(\hat y) > 0.5$ and $yi = 0$ if $logit^{-1}(\hat y) < 0.5$ is wrong). The proportion of 1 - correct responses when guessing (1 - diagonal of the 01 classification table)
+
+```{r}
+preds <- predict(fit, type = "response")
+preds01 <- ifelse(preds > 0.5, 1, 0)
+table(dat$y, preds01)
+mean((preds>0.5 & dat$y==0) | (preds<0.5 & dat$y==1))
+```
+
+## Error rate and comparison to the null model
+
+```{r}
+error_rate <- function(fit){
+    yi <- fit$data$y
+    yhat <- predict(fit, type = "response")
+    yhat01 <- ifelse(yhat > 0.5, 1, 0)
+    mean((yi == 1 & yhat01 == 0) | (yi == 0 & yhat01 == 1))
+}
+
+fit0 <- glm(y ~ 1, data = dat, family = binomial(link = "logit"))
+
+error_rate(fit0)
+
+1 / (error_rate(fit) / error_rate(fit0))
+```
+
+## Where error rate can mislead
+
