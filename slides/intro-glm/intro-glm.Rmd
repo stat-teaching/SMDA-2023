@@ -1,0 +1,541 @@
+---
+title: "Introduction to Generalized Linear Models"
+author: "Filippo Gambarota"
+date: "2022/2023"
+institute: "University of Padova"
+bibliography: "https://raw.githubusercontent.com/filippogambarota/bib-database/main/references.bib"
+csl: "https://raw.githubusercontent.com/citation-style-language/styles/master/ieee.csl"
+link-citations: true
+output: 
+    beamer_presentation:
+        theme: "SimpleDarkBlue"
+        includes:
+            in_header: !expr here::here('template', 'slides', 'preamble.tex')
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      message = FALSE,
+                      warning = FALSE,
+                      fig.align = "center",
+                      out.width = "100%")
+
+def.chunk.hook  <- knitr::knit_hooks$get("chunk")
+knitr::knit_hooks$set(chunk = function(x, options) {
+  x <- def.chunk.hook(x, options)
+  ifelse(options$size != "normalsize", paste0("\n \\", options$size,"\n\n", x, "\n\n \\normalsize"), x)
+})
+```
+
+```{r packages}
+devtools::load_all()
+library(tidyverse)
+library(kableExtra)
+library(patchwork)
+```
+
+## Outline
+
+\tableofcontents[hideallsubsections]
+
+# Beyond the Gaussian distribution
+
+## Quick recap about Gaussian distribution
+
+\begin{columns}
+\begin{column}{0.5\textwidth}
+
+\begin{itemize}
+\item function
+\item parameters
+\item support
+\end{itemize}
+
+\end{column}
+\begin{column}{0.5\textwidth}
+
+```{r}
+ggnorm(0, 1)
+```
+
+\end{column}
+\end{columns}
+
+\begin{center}
+But not always gaussian-like variables!
+\end{center}
+
+## Reaction times
+
+Measuring reaction times during a cognitive task. Non-negative and proably skewed data.
+
+```{r}
+dat <- data.frame(
+    x = rgamma(1e5, 9, scale = 0.5)*100
+) 
+
+dat |> 
+    ggplot(aes(x = x)) +
+    geom_histogram(fill = "lightblue",
+                   color = "black") +
+    xlab("Reaction Times (ms)") +
+    ylab("Count") +
+    mytheme()
+```
+
+## Binary outcomes
+
+Counting the number of people passing the exam out of the total. Discrete and non-negative. A series of binary (i.e., *bernoulli*) experiments.
+
+```{r}
+dat <- data.frame(x = rbinom(1e5, 10, 0.7))
+
+dat |> 
+    ggplot(aes(x = factor(x))) +
+    geom_bar(fill = "lightblue",
+             color = "black") +
+    xlab("Number of success out of 10 trials") +
+    ylab("Count") +
+    mytheme()
+
+```
+
+## Binary outcomes
+
+```{r}
+dat <- data.frame(y = c(70, 30), x = c("Passed", "Failed"))
+
+dat |> 
+    ggplot(aes(x = x, y = y)) +
+    geom_col(color = "black",
+             fill = "lightblue") +
+    ylab("Count") +
+    mytheme() +
+    theme(axis.title.x = element_blank()) +
+    ggtitle("Statistics Final Exam (n = 100)")
+```
+
+## Counts
+
+Counting the number of new patients per week. Discrete and non-negative values.
+
+```{r}
+dat <- data.frame(x = rpois(1e5, 15))
+
+dat |> 
+    ggplot(aes(x = x)) +
+    geom_histogram(binwidth = 2,
+                   color = "black",
+                   fill = "lightblue") +
+    xlab("Number of new patients per week") +
+    ylab("Count") +
+    mytheme()
+```
+
+## Should we use a linear model for these variables?
+
+```{r}
+# y = number of exercises solved in 1 semester
+# x = percentage of attended lectures
+
+n <- 30
+x <- rep(0:10, each = n)
+b0 <- 0.01
+b1 <- 0.8
+y <- rbinom(length(x), 1, plogis(qlogis(b0) + b1*x))
+
+dat <- data.frame(x, y)
+
+dat |> 
+    ggplot(aes(x = x, y = y)) +
+    geom_hline(yintercept = 0, linetype = "dashed", col = "red") +
+    geom_point(size = 3,
+               alpha = 0.5,
+               position = position_jitter(height = 0.03)) +
+    geom_smooth(method = "lm", 
+                se = F) +
+    mytheme() +
+    scale_x_continuous(breaks = 0:10) +
+    xlab("Questions difficulty") +
+    ylab("Probability of passing the exam")
+```
+
+## Should we use a linear model for these variables?
+
+```{r}
+# y = number of exercises solved in 1 semester
+# x = percentage of attended lectures
+
+n <- 30
+x <- runif(n, 0, 1)
+b0 <- 0
+b1 <- 4
+y <- rpois(n, exp(b0 + b1*x))
+
+dat <- data.frame(x, y)
+
+dat |> 
+    ggplot(aes(x = x*100, y = y)) +
+    geom_hline(yintercept = 0, linetype = "dashed", col = "red") +
+    geom_point(size = 3) +
+    geom_smooth(method = "lm", 
+                se = F) +
+    mytheme() +
+    xlab("Percetage of attended lectures") +
+    ylab("Solved exercises")
+```
+
+## Should we use a linear model for these variables?
+
+```{r}
+fit <- lm(y ~ x, data = dat)
+
+dfit <- data.frame(
+    fitted = fitted(fit),
+    residuals = residuals(fit)
+)
+
+qqn <- dfit |> 
+    ggplot(aes(sample = residuals)) + 
+    stat_qq() + 
+    stat_qq_line() +
+    xlab("Theoretical Quantiles") +
+    ylab("Residuals") +
+    mytheme()
+
+res_fit <- dfit |> 
+    ggplot(aes(x = fitted, y = residuals)) +
+    geom_point() +
+    mytheme() +
+    ylab("Residuals") +
+    xlab("Fitted")
+qqn + res_fit
+```
+
+## A new class of models
+
+- We need that our model take into account the **features of our response variable**
+- We need a model that, **with appropriate transformation**, keep **properties of standard linear models**
+- We need a model that is **closer to the true data generation process**
+
+\begin{center}
+Let's switch to Generalized Linear Models!
+\end{center}
+
+# Generalized Linear Models
+
+## Main references
+
+add books here
+
+## General idea
+
+- models that assume distributions other than the normal distributions
+- models that considers non-linear relationships
+
+<!-- TODO add something else -->
+
+## Recipe for a GLM
+
+- **Random Component**
+- **Systematic Component**
+- **Link Function**
+
+## Random Component
+
+## Systematic Component
+
+## Link Function
+
+# Relevant distributions
+
+## Binomial distribution
+
+## Poisson distribution
+
+# Data simulation *[EXTRA]*
+
+## Data simulation *[EXTRA]*
+
+- During the course we will try to simulate some data. Simulating data is an amazing education tool to understand a statistical model.
+- By simulating from a **generative model** we are doing **Monte Carlo Simulations** [@Gentle2009-cj]
+
+## Data simulation *[EXTRA]*
+
+::: columns
+
+:::: column
+```{r, size = "tiny"}
+n <- 1e5 # number of experiments
+nt <- 100 # number of subjects
+p <- 0.7 # probability of success
+nc <- rbinom(n, nt, p)
+```
+
+```{r, echo = FALSE}
+hist(nc/nt)
+```
+::::
+
+:::: column
+```{r, size = "tiny"}
+n <- 1e5 # number of subjects
+lambda <- 30 # mean/variance
+y <- rpois(n, lambda)
+```
+
+```{r, echo = FALSE}
+hist(y)
+```
+::::
+
+:::
+
+# Binomial GLM
+
+## Example: Passing the exam
+
+We want to measure the impact of **watching tv-shows** on the probability of **passing the statistics exam**.
+
+- `exam`: **passing the exam** (1 = "passed", 0 = "failed")
+- `tv_shows`: **watching tv-shows regularly** (1 = "yes", 0 = "no")
+
+```{r, echo = FALSE}
+n <- 100
+n_watching <- n/2 # just for simplicity
+p_pass_yes <- 0.7
+p_pass_no <- 0.3
+
+dat <- data.frame(
+    tv_shows = rep(c(1, 0), each = n_watching)
+)
+
+b0 <- 0.3 # P(passing|not watching)
+b1 <- 3.5 # odds ratio between watching and not watching
+
+# pn_from_or(0.3, 3.5) # P(passing|watching)
+
+dat$exam <- rbinom(n, 1, plogis(qlogis(b0) + log(b1)*dat$tv_shows))
+fit <- glm(exam ~ tv_shows, data = dat, family = binomial(link = "logit"))
+```
+
+```{r}
+head(dat)
+```
+
+## Example: Passing the exam
+
+We can create the **contingency table**
+
+```{r}
+xtabs(~exam + tv_shows, data = dat) |> 
+    addmargins()
+```
+
+## Example: Passing the exam
+
+Each cell probability $\pi_{ij}$ is computed as $\pi_{ij}/n$
+
+```{r}
+(xtabs(~exam + tv_shows, data = dat)/n) |> 
+    addmargins()
+```
+
+## Example: Passing the exam - Odds
+
+The most common way to analyze a 2x2 contingency table is using the **odds ratio** (OR). Firsly let's define *the odds of success* as:
+
+$$
+odds = \frac{\pi}{1 - \pi} \;\;\;\;
+\pi = \frac{odds}{odds + 1}
+$$
+
+- the **odds** are non-negative, ranging between 0 and $+\infty$
+- an **odds** of e.g. 3 means that we expect 3 *success* for each *failure*
+
+## Example: Passing the exam - Odds
+
+For the `exam` example:
+
+```{r}
+odds <- function(p) p / (1 - p)
+p11 <- mean(with(dat, exam[tv_shows == 1])) # passing exam | tv_shows
+odds(p11)
+```
+
+## Example: Passing the exam - Odds Ratio
+
+The OR is a ratio of odds:
+
+$$
+OR = \frac{\frac{\pi_1}{1 - \pi_1}}{\frac{\pi_2}{1 - \pi_2}}
+$$
+
+- OR ranges between 0 and $+\infty$. When $OR = 1$ the odds for the two conditions are equal
+- An e.g. $OR = 3$ means that being in the condition at the numerator increase 3 times the odds of success
+
+## Example: Passing the exam - Odds Ratio
+
+```{r}
+odds_ratio <- function(p1, p2) odds(p1) / odds(p2)
+p11 <- mean(with(dat, exam[tv_shows == 1])) # passing exam | tv_shows
+p10 <- mean(with(dat, exam[tv_shows == 0])) # passing exam | not tv_shows
+odds_ratio(p11, p10)
+```
+
+## Why using these measure?
+
+The odds have an interesting property when taking the logarithm. We can express a probability $\pi$ using a scale ranging $[-\infty, +\infty]$
+
+```{r, echo = FALSE}
+p1 <- seq(0, 1, 0.001)
+p2 <- seq(1, 0, -0.001)
+
+ord <- data.frame(
+    p1, p2
+)
+
+ord$or <- odds_ratio(ord$p1, ord$p2)
+
+ord |> 
+    ggplot(aes(x = p1, y = log(or))) +
+    geom_hline(yintercept = 0, 
+               linetype = "dashed",
+               col = "firebrick2",
+               linewidth = 0.5) +
+    geom_line(linewidth = 1) +
+    mytheme() +
+    ylab(latex2exp::TeX("$log(\\frac{\\pi}{1 - \\pi})$")) +
+    scale_x_continuous(
+        latex2exp::TeX("$\\pi$"),
+        sec.axis = dup_axis(
+            trans = .~rev(.),
+            name = latex2exp::TeX("$1 - \\pi$")
+        )
+    )
+```
+
+# Binomial GLM
+
+## Binomial GLM
+
+- The **random component** of a Binomial GLM the binomial distribution with parameter $\pi$
+- The **systematic component** is a linear combination of predictors and coefficients $\boldsymbol{\beta X}$
+- The **link function** is a function that map probabilities into the $[-\infty, +\infty]$ range.
+
+## Binomial GLM - Logit Link
+
+The **logit** link is the most common link function when using a binomial GLM:
+
+$$
+log \left(\frac{\pi}{1 - \pi}\right) = \beta_0 + \beta_{1}X_{1} + ...\beta_pX_p  
+$$
+
+The inverse of the **logit** maps again the probability into the $[0, 1]$ range:
+
+$$
+\pi = \frac{e^{\beta_0 + \beta_{1}X_{1} + ...\beta_pX_p}}{1 + e^{\beta_0 + \beta_{1}X_{1} + ...\beta_pX_p}}  
+$$
+
+## Binomial GLM - Logit Link
+
+Thus with a single numerical predictor $x$ the relationship between $x$ and $\pi$ in non-linear on the probability scale but linear on the logit scale.
+
+```{r, echo = FALSE}
+x <- seq(0, 1, 0.001)
+p <- plogis(qlogis(0.01) + 8*x)
+
+dat <- data.frame(x, p)
+dat$lp <- log(odds(dat$p))
+
+dat |> 
+    pivot_longer(c(p, lp)) |> 
+    mutate(name = factor(name, 
+                         labels = c(latex2exp::TeX("$log \\left(\\frac{\\pi}{1-\\pi}\\right)$"),
+                                    latex2exp::TeX("$\\pi$")))) |> 
+    ggplot(aes(x = x*100, y = value)) +
+    facet_wrap(~name, scales = "free",
+               labeller = label_parsed) +
+    geom_line() +
+    xlab(latex2exp::TeX("$X_1$")) +
+    mytheme() +
+    theme(axis.title.y = element_blank())
+```
+
+## Binomial GLM - Logit Link
+
+The problem is that effects are non-linear, thus is more difficult to interpret and report model results
+
+```{r, echo = FALSE}
+x <- runif(10000, 0, 1)
+p <- plogis(qlogis(0.01) + 8*x)
+linpred <- qlogis(p)
+y <- rbinom(length(x), 1, p)
+
+dat <- data.frame(
+    y = y,
+    x = x,
+    p = p,
+    lp = linpred
+)
+
+fp <- function(x) {
+    qlogis(0.01) + 8 * x
+}
+
+pp <- c(0.5, 0.6, 0.7, 0.8)
+
+plot_logit <- ggplot() +
+    stat_function(data = data.frame(x = c(0,1)), 
+                  aes(x),
+                  fun = fp) +
+    # points
+    geom_point(aes(x = pp, y = fp(pp))) +
+    geom_point(aes(x = c(0, 0, 0, 0), y = fp(pp))) + 
+    geom_point(aes(x = pp, y = c(-5, -5, -5, -5))) +
+    # segments
+    geom_segment(aes(x = pp, y = c(-5, -5, -5, -5),
+                     xend = pp, yend = fp(pp)),
+                 linetype = "dashed",
+                 linewidth = 0.3) +
+    geom_segment(aes(x = pp, y = c(-5, -5, -5, -5),
+                     xend = pp, yend = fp(pp)),
+                 linetype = "dashed",
+                 linewidth = 0.3) +
+    geom_segment(aes(x = c(0,0,0,0), y = fp(pp),
+                     xend = pp, yend = fp(pp)),
+                 linetype = "dashed",
+                 linewidth = 0.3) +
+    mytheme() +
+    xlab(latex2exp::TeX("$X_1$")) +
+    ylab(latex2exp::TeX("$logit(\\pi)$"))
+
+plot_invlogit <- ggplot() +
+    stat_function(data = data.frame(x = c(0,1)), 
+                  aes(x),
+                  fun = function(x) plogis(fp(x))) +
+    # points
+    geom_point(aes(x = pp, y = plogis(fp(pp)))) +
+    geom_point(aes(x = pp, y = c(0, 0, 0, 0))) +
+    geom_point(aes(x = c(0, 0, 0, 0), y = plogis(fp(pp)))) +
+    # segments
+    geom_segment(aes(x = pp, y = c(0, 0, 0, 0),
+                     xend = pp, yend = plogis(fp(pp))),
+                 linetype = "dashed",
+                 linewidth = 0.3) +
+    geom_segment(aes(x = pp, y = c(0, 0, 0, 0),
+                     xend = pp, yend = plogis(fp(pp))),
+                 linetype = "dashed",
+                 linewidth = 0.3) +
+    geom_segment(aes(x = c(0, 0, 0, 0), y = plogis(fp(pp)),
+                     xend = pp, yend = plogis(fp(pp))),
+                 linetype = "dashed",
+                 linewidth = 0.3) +
+    mytheme() +
+    xlab(latex2exp::TeX("$X_1$")) +
+    ylab(latex2exp::TeX("$logit^{-1}(\\pi)$"))
+
+plot_logit | plot_invlogit
+```
+
+## References

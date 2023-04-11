@@ -1,0 +1,45 @@
+\usepackage{academicons}
+\usepackage{fontawesome}
+
+\newif\ifshowtoc
+\showtoctrue% toggles to show the toc
+
+% highlight current section
+\AtBeginSection{%
+\ifshowtoc
+\begin{frame}
+    \tableofcontents[currentsection, hideallsubsections, subsectionstyle=show/show/hide]
+\end{frame}
+\fi
+}
+
+% reduce font size footnotes
+\renewcommand{\footnotesize}{\scriptsize} 
+
+% command for footnotes without number
+\newcommand\addnote[1]{%
+  \begingroup
+  \renewcommand\thefootnote{}\footnote{#1}%
+  \addtocounter{footnote}{-1}%
+  \endgroup
+}
+
+% multi columns
+
+\newenvironment{cols}[1][]{}{}
+
+\newenvironment{col}[1]{\begin{minipage}{#1}\ignorespaces}{%
+\end{minipage}
+\ifhmode\unskip\fi
+\aftergroup\useignorespacesandallpars}
+
+\def\useignorespacesandallpars#1\ignorespaces\fi{%
+#1\fi\ignorespacesandallpars}
+
+\makeatletter
+\def\ignorespacesandallpars{%
+  \@ifnextchar\par
+    {\expandafter\ignorespacesandallpars\@gobble}%
+    {}%
+}
+\makeatother
