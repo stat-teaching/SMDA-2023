@@ -59,7 +59,7 @@
 - wald test
 - model comparison
 - parameters interpretation
-    - divide by 4 rule
+    - divide by 4 rule  
     - marginal effects
     - odds ratios
     - predicted probabilities

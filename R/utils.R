@@ -154,3 +154,69 @@ binary_to_bin <- function(data, y, ...){
                   nf = n() - nc,
                   nt = n())
 }
+
+dfbeta_plot <- function(fit, params = NULL){
+    require(ggplot2)
+    require(tidyr)
+    require(dplyr)
+    
+    infl <- infl_measure(fit)
+    res <- infl[, grepl("dfb", names(infl))]
+    names(res) <- names(coef(fit))
+    res$id <- 1:nrow(res)
+    cutoff <- 2/sqrt(nrow(infl))
+    
+    res <- res |> 
+        pivot_longer(!starts_with("id")) |> 
+        mutate(out = abs(value) > cutoff)
+    
+    if(!is.null(params)){
+        res <- res[res$name %in% params, ]
+    }
+    
+    ggplot(data = res,
+           aes(x = value, y = id)) +
+        geom_vline(xintercept = c(cutoff, -cutoff), color = "red", linetype = "dashed") +
+        geom_point() +
+        geom_segment(aes(x = 0, xend = value, y = id, yend = id)) +
+        ggrepel::geom_label_repel(data = res[res$out, ],
+                                  aes(x = value, y = id, label = id),
+                                  show.legend = FALSE) +
+        facet_wrap(~name) +
+        ylab("Observations") +
+        xlab("DFBETAs")
+}
+
+cook_plot <- function(fit){
+    require(ggplot2)
+    require(tidyr)
+    require(dplyr)
+    
+    infl <- infl_measure(fit)
+    cutoff <- 4/nrow(infl)
+    infl$out <- infl$cook.d > cutoff
+    infl$id <- 1:nrow(infl)
+    
+    ggplot(data = infl,
+           aes(x = cook.d, y = id)) +
+        geom_vline(xintercept = cutoff, color = "red", linetype = "dashed") +
+        geom_point() +
+        ggrepel::geom_label_repel(data = infl[infl$out, ],
+                                  aes(x = cook.d, y = id, label = id),
+                                  show.legend = FALSE) +
+        geom_segment(aes(x = 0, xend = cook.d, y = id, yend = id)) +
+        ylab("Observation") +
+        xlab("Cook Distances")
+}
+
+infl_measure <- function(fit){
+    data.frame(influence.measures(fit)$infmat)
+}
+
+
+error_rate <- function(fit){
+    pi <- predict(fit, type = "response")
+    yi <- fit$y
+    cr <- mean((pi > 0.5 & yi == 1) | (pi < 0.5 & yi == 0))
+    1 - cr # error rate
+}

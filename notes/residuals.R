@@ -34,7 +34,3 @@ ri_d <- sign(ri_l)*sqrt(-2*(y*log(pi) + (1 - dat$y)*log(1 - pi)))
 # residual deviance
 # deviance(fit)
 sum(ri_d^2)
-
-
-binned <- data.frame(performance::binned_residuals(fit, n_bins = 30))
-

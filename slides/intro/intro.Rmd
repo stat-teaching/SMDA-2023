@@ -571,3 +571,6 @@ error_rate(fit0)
 
 ## Where error rate can mislead
 
+$$
+95\% CI = \beta_i \pm \Phi(\alpha/2)\sigma_{\beta_i}
+$$
