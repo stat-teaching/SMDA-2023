@@ -70,11 +70,18 @@ trim_df <- function(data, prows = 4){
     dots <- data[1, ]
     dots[1, ] <- "..."
     nrows <- nrow(data)
-    trimmed <- rbind(
-        data[1:prows,],
-        dots,
-        data[(nrows-(prows - 1)):nrows, ]
-    )
+    if(nrows <= 5){
+        trimmed <- data
+    } else{
+        if(nrows <= prows*2){
+            prows <- floor(prows/2)
+        }
+        trimmed <- rbind(
+            data[1:prows,],
+            dots,
+            data[(nrows-(prows - 1)):nrows, ]
+        )
+    }
     rownames(trimmed) <- NULL
     return(trimmed)
 }
@@ -101,4 +108,22 @@ mytheme <- function(size = 15){
 ref <- function(book, chapter, page){
     sprintf("\\addnote{%s, Ch. %s, pp. %s}",
             book, chapter, page)
+}
+
+note <- function(x){
+    sprintf("\\addnote{%s}", x)
+}
+
+color <- function(x, color){
+    sprintf("\\textcolor{%s}{%s}", color, x)
+}
+
+format <- function(x, what){
+    switch(what,
+           "code" = code(x)
+    )
+}
+
+code <- function(x){
+    sprintf("\\texttt{%s}", x)
 }

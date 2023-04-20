@@ -155,57 +155,72 @@ binary_to_bin <- function(data, y, ...){
                   nt = n())
 }
 
-dfbeta_plot <- function(fit, params = NULL){
-    require(ggplot2)
-    require(tidyr)
-    require(dplyr)
-    
-    infl <- infl_measure(fit)
-    res <- infl[, grepl("dfb", names(infl))]
-    names(res) <- names(coef(fit))
-    res$id <- 1:nrow(res)
-    cutoff <- 2/sqrt(nrow(infl))
-    
-    res <- res |> 
-        pivot_longer(!starts_with("id")) |> 
-        mutate(out = abs(value) > cutoff)
-    
-    if(!is.null(params)){
-        res <- res[res$name %in% params, ]
+dfbeta_plot <- function(fit, 
+                        params = NULL, 
+                        onlyout = FALSE, 
+                        cutoff = NULL){
+    n <- nrow(fit$data)
+    if(is.null(cutoff)){ # default to 
+        cutoff <- 2/sqrt(n)
     }
     
-    ggplot(data = res,
-           aes(x = value, y = id)) +
-        geom_vline(xintercept = c(cutoff, -cutoff), color = "red", linetype = "dashed") +
-        geom_point() +
-        geom_segment(aes(x = 0, xend = value, y = id, yend = id)) +
-        ggrepel::geom_label_repel(data = res[res$out, ],
-                                  aes(x = value, y = id, label = id),
-                                  show.legend = FALSE) +
-        facet_wrap(~name) +
-        ylab("Observations") +
-        xlab("DFBETAs")
+    dfb <- data.frame(dfbeta(fit))
+    
+    if(!is.null(params)){ # select some parameters
+        dfb <- dfb[, params]
+    }
+    
+    dfb$id <- 1:nrow(dfb)
+    names(dfb) <- c(names(coef(fit)), "id")
+    dfb <- dfb[, c("id", names(coef(fit)))]
+    dfb <- reshape2::melt(dfb, id.vars = "id")
+    dfb$out <- abs(dfb$value) > cutoff
+    
+    if(onlyout){ # plot only parameters with at least 1 outlier
+        sel <- unique(dfb$variable[dfb$out])
+        if(length(sel) < 1){
+            stop("The model has not influential observation!")
+        }
+        dfb <- dfb[dfb$variable %in% sel, ]
+    }
+    
+    ggplot() +
+        geom_vline(xintercept = c(-cutoff, cutoff),
+                   linetype = "dashed") +
+        geom_segment(data = dfb,
+                     aes(x = 0, xend = value, y = id, yend = id)) +
+        geom_point(data = dfb[!dfb$out, ],
+                   aes(x = value, y = id),
+                   color = "blue") +
+        geom_label(data = dfb[dfb$out, ],
+                   fill = "white",
+                   aes(x = value, y = id, label = id)) +
+        facet_wrap(~variable) +
+        xlab("DFBETAs") +
+        ylab("Observations")
 }
 
-cook_plot <- function(fit){
-    require(ggplot2)
-    require(tidyr)
-    require(dplyr)
+cook_plot <- function(fit, cutoff = NULL){
+    n <- nrow(fit$data)
+    cook <- data.frame(cooks.distance(fit))
+    names(cook) <- "d"
     
-    infl <- infl_measure(fit)
-    cutoff <- 4/nrow(infl)
-    infl$out <- infl$cook.d > cutoff
-    infl$id <- 1:nrow(infl)
+    if(is.null(cutoff)){
+        cutoff <- 4/n
+    }
     
-    ggplot(data = infl,
-           aes(x = cook.d, y = id)) +
+    cook$out <- cook$d > cutoff
+    cook$id <- 1:nrow(cook)
+    
+    ggplot() +
+        geom_segment(data = cook,
+                     aes(x = 0, xend = d, y = id, yend = id)) +
         geom_vline(xintercept = cutoff, color = "red", linetype = "dashed") +
-        geom_point() +
-        ggrepel::geom_label_repel(data = infl[infl$out, ],
-                                  aes(x = cook.d, y = id, label = id),
-                                  show.legend = FALSE) +
-        geom_segment(aes(x = 0, xend = cook.d, y = id, yend = id)) +
-        ylab("Observation") +
+        geom_point(data = cook[!cook$out, ],
+                   aes(x = d, y = id)) +
+        geom_label(data = cook[cook$out, ],
+                   aes(x = d, y = id, label = id)) +
+        ylab("Observations") +
         xlab("Cook Distances")
 }
 
@@ -219,4 +234,114 @@ error_rate <- function(fit){
     yi <- fit$y
     cr <- mean((pi > 0.5 & yi == 1) | (pi < 0.5 & yi == 0))
     1 - cr # error rate
+}
+
+# sim_design <- function(ns, contrasts = contr.treatment, ...){
+#     dots <- list(...)
+#     dots_e <- rlang::enexprs(...)
+#     nx <- sapply(dots, length)
+#     if(length(dots) > 0){
+#         if(length(dots[nx != ns]) > 0){
+#             data <- tidyr::expand_grid(id = 1:ns, !!!dots_e[nx != ns])
+#         }
+#         if(length(dots[nx == ns]) > 0){
+#             data <- cbind(data, data.frame(dots[nx == ns]))
+#         }
+#         data$id <- 1:nrow(data)
+#         data <- dplyr::select(data, id, everything())
+#         data <- set_contrasts(data, contrasts)
+#     }else{
+#         data <- tibble::tibble(id = 1:ns)
+#     }
+# }
+
+sim_design <- function(ns, nx = NULL, cx = NULL, contrasts = contr.treatment){
+    # if(!is.list(cx)){
+    #     cxn <- deparse(substitute(cx))
+    #     cx <- list(cx)
+    #     names(cx) <- cxn
+    # }
+    data <- data.frame(id = 1:ns)
+    if(!is.null(cx)){
+        data <- tidyr::expand_grid(data, !!!cx)
+    }
+    if(!is.null(nx)){
+        data <- cbind(data, nx)
+    }
+    if(!is.null(contrasts) & !is.null(cx)){
+        data <- set_contrasts(data, contrasts)
+        data <- .num_from_contrast(data)
+    }else{
+        data <- tibble::tibble(dplyr::mutate(data, across(where(is.character), as.factor)))
+    }
+    return(data)
+}
+
+sim_data <- function(data, linpred, model = c("binomial", "poisson")){
+    model <- match.arg(model)
+    linpred <- rlang::enexpr(linpred)
+    data$lp <- with(data, eval(linpred))
+    if(model == "binomial"){
+        data$y <- rbinom(nrow(data), 1, data$lp)
+    }else{
+        data$y <- rpois(nrow(data), data$lp)
+    }
+    return(data)
+}
+
+# sim_data <- function(data, linpred){
+#     linpred <- rlang::enexpr(linpred)
+#     data$lp <- with(data, eval(linpred))
+#     data$y <- rbinom(nrow(data), 1, plogis(data$lp))
+#     return(data)
+# }
+
+classify <- function(fit, th){
+    pi <- predict(fit, type = "response")
+    pi <- ifelse(pi > th, 1, 0)
+    yi <- fit$y
+    
+    tp <- sum(yi == 1 & pi == 1) # true positive  (HIT)
+    tn <- sum(yi == 0 & pi == 0) # true negative  (CR)
+    fp <- sum(yi == 0 & pi == 1) # false positive (FA)
+    fn <- sum(yi == 1 & pi == 0) # false negative (MISS)
+    
+    tpr <- tp / (tp + fn) # sensitivity
+    tnr <- tn / (tn + fp) # specificity
+    fpr <- 1 - tnr # 1 - specificity
+    fnr <- 1 - tpr # 1 - sensitivity
+    
+    list(tp = tp, tn = tn, fp = fp, fn = fn,
+         tpr = tpr,
+         tnr = tnr,
+         fnr = fnr,
+         fpr = fpr)
+}
+
+set_contrasts <- function(data, f){
+    setcon <- function(col, f){
+        if(is.character(col)){
+            col <- as.factor(col)
+            contrasts(col) <- f(nlevels(col))
+        }else if(is.factor(col)){
+            contrasts(col) <- f(nlevels(col))
+        }
+        return(col)
+    }
+    dplyr::bind_cols(lapply(data, setcon, f))
+    # cols <- rlang::enexprs(...)
+    # datan <- dplyr::select(data, !!!cols)
+    # datan <- cbind(select(data, -c(!!!cols)), datan)
+    # datan[, names(data)]
+}
+
+contr.sum2 <- function(n){
+    contr.sum(n)/n
+}
+
+.num_from_contrast <- function(data){
+    fct <- data[, sapply(data, is.factor)]
+    fct_num <- lapply(fct, function(col) contrasts(col)[col])
+    names(fct_num) <- paste0(names(fct_num), "_c")
+    cbind(data, fct_num)
 }

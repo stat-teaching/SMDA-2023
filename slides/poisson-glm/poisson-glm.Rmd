@@ -33,4 +33,8 @@ library(patchwork)
 
 \tableofcontents[hideallsubsections]
 
+## Overdispersion
+
+**Overdispersion** concerns observing a greater variance compared to what would have been expected by the model. This is very common in Poisson models where the mean coincides with the variance.
+
 ## References

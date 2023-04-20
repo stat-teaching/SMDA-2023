@@ -4,14 +4,16 @@
 \newif\ifshowtoc
 \showtoctrue% toggles to show the toc
 
-% highlight current section
-\AtBeginSection{%
-\ifshowtoc
-\begin{frame}
-    \tableofcontents[currentsection, hideallsubsections, subsectionstyle=show/show/hide]
-\end{frame}
-\fi
-}
+% % highlight current section
+% \AtBeginSection{%
+% \ifshowtoc
+% \begin{frame}
+%     \tableofcontents[currentsection, hideallsubsections, subsectionstyle=show/show/hide]
+% \end{frame}
+% \fi
+% }
+
+\setbeamercolor{section name}{fg=white}
 
 % reduce font size footnotes
 \renewcommand{\footnotesize}{\scriptsize} 
@@ -44,7 +46,10 @@
 }
 \makeatother
 
+\setbeamerfont{section in toc}{size=\scriptsize}
+
 \usepackage{booktabs}
+\usepackage{xcolor}
 \usepackage{booktabs}
 \usepackage{longtable}
 \usepackage{array}

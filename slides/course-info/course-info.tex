@@ -1,0 +1,292 @@
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+%
+\documentclass[
+  ignorenonframetext,
+]{beamer}
+\usepackage{pgfpages}
+\setbeamertemplate{caption}[numbered]
+\setbeamertemplate{caption label separator}{: }
+\setbeamercolor{caption name}{fg=normal text.fg}
+\beamertemplatenavigationsymbolsempty
+% Prevent slide breaks in the middle of a paragraph
+\widowpenalties 1 10000
+\raggedbottom
+\setbeamertemplate{part page}{
+  \centering
+  \begin{beamercolorbox}[sep=16pt,center]{part title}
+    \usebeamerfont{part title}\insertpart\par
+  \end{beamercolorbox}
+}
+\setbeamertemplate{section page}{
+  \centering
+  \begin{beamercolorbox}[sep=12pt,center]{part title}
+    \usebeamerfont{section title}\insertsection\par
+  \end{beamercolorbox}
+}
+\setbeamertemplate{subsection page}{
+  \centering
+  \begin{beamercolorbox}[sep=8pt,center]{part title}
+    \usebeamerfont{subsection title}\insertsubsection\par
+  \end{beamercolorbox}
+}
+\AtBeginPart{
+  \frame{\partpage}
+}
+\AtBeginSection{
+  \ifbibliography
+  \else
+    \frame{\sectionpage}
+  \fi
+}
+\AtBeginSubsection{
+  \frame{\subsectionpage}
+}
+\usepackage{amsmath,amssymb}
+\usepackage{lmodern}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math}
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usetheme[]{SimpleDarkBlue}
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+\usepackage{xcolor}
+\newif\ifbibliography
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\usepackage{academicons}
+\usepackage{fontawesome}
+
+\newif\ifshowtoc
+\showtoctrue% toggles to show the toc
+
+% % highlight current section
+% \AtBeginSection{%
+% \ifshowtoc
+% \begin{frame}
+%     \tableofcontents[currentsection, hideallsubsections, subsectionstyle=show/show/hide]
+% \end{frame}
+% \fi
+% }
+
+\setbeamercolor{section name}{fg=white}
+
+% reduce font size footnotes
+\renewcommand{\footnotesize}{\scriptsize} 
+
+% command for footnotes without number
+\newcommand\addnote[1]{%
+  \begingroup
+  \renewcommand\thefootnote{}\footnote{#1}%
+  \addtocounter{footnote}{-1}%
+  \endgroup
+}
+
+% multi columns
+
+\newenvironment{cols}[1][]{}{}
+
+\newenvironment{col}[1]{\begin{minipage}{#1}\ignorespaces}{%
+\end{minipage}
+\ifhmode\unskip\fi
+\aftergroup\useignorespacesandallpars}
+
+\def\useignorespacesandallpars#1\ignorespaces\fi{%
+#1\fi\ignorespacesandallpars}
+
+\makeatletter
+\def\ignorespacesandallpars{%
+  \@ifnextchar\par
+    {\expandafter\ignorespacesandallpars\@gobble}%
+    {}%
+}
+\makeatother
+
+\setbeamerfont{section in toc}{size=\scriptsize}
+
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{wrapfig}
+\usepackage{float}
+\usepackage{colortbl}
+\usepackage{pdflscape}
+\usepackage{tabu}
+\usepackage{threeparttable}
+\usepackage{csquotes}
+\usepackage{makecell}
+\ifLuaTeX
+  \usepackage{selnolig}  % disable illegal ligatures
+\fi
+\IfFileExists{bookmark.sty}{\usepackage{bookmark}}{\usepackage{hyperref}}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same} % disable monospaced font for URLs
+\hypersetup{
+  pdftitle={Introduction to Generalized Linear Models},
+  pdfauthor={Filippo Gambarota},
+  hidelinks,
+  pdfcreator={LaTeX via pandoc}}
+
+\title{Introduction to Generalized Linear Models}
+\subtitle{General course information}
+\author{Filippo Gambarota}
+\date{2022/2023}
+\institute{University of Padova}
+
+\begin{document}
+\frame{\titlepage}
+
+\begin{frame}{About me}
+\protect\hypertarget{about-me}{}
+\begin{itemize}
+\tightlist
+\item
+  I'm a post-doc researcher at the Department of Developmental
+  Psychology and Socialization
+\item
+  I did a PhD in Experimental Psychology studying the unconscious
+  working memory processing
+\item
+  I work with Professor Gianmarco Altoè on data analysis in Psychology,
+  especially meta-analysis
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Office hours}
+\protect\hypertarget{office-hours}{}
+I do not have official office hours but we can schedule an appointment.
+you can write me at
+\textbf{\href{mailto::filippo.gambarota@unipd.it}{filippo.gambarota@unipd.it}}:
+
+\begin{itemize}
+\tightlist
+\item
+  my office is the 027, first floor Psico1 building (pink building)
+\item
+  we can also schedule on Zoom
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Materials}
+\protect\hypertarget{materials}{}
+The slides will be structured intermixing:
+
+\begin{itemize}
+\tightlist
+\item
+  R code
+\item
+  Theory and Formulas (not a lot :) )
+\item
+  Plots (a lot!)
+\item
+  Examples and exercises
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Materials}
+\protect\hypertarget{materials-1}{}
+\begin{itemize}
+\tightlist
+\item
+  slides with the \texttt{\textcolor{red}{\#extra}} tag are very
+  specific but useful topics that will be eventually covered but are not
+  part of the core course/exam
+\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{R code}
+\protect\hypertarget{r-code}{}
+I mainly use R for my daily work but a deep understanding of R is not
+necessary.
+
+Slides are created with R Markdown (\texttt{.rmd} files) and distributed
+in \texttt{pdf} and all source scripts are available.
+
+I wrote several custom functions that are used in the slide and maybe
+during the exercizes.
+\end{frame}
+
+\begin{frame}{Theory and Formulas}
+\protect\hypertarget{theory-and-formulas}{}
+I tried to reduce the amount of formulas. I prefer to make practical
+examples and showing the R code.
+
+The probability of making an error or typo is close to 1 (Shepard,
+2023), if you find something strange raise the hand or write me an email
+:)
+
+\begin{center}\includegraphics[width=0.3\linewidth]{img/meme-math} \end{center}
+
+\addnote{Source: https://www.splashlearn.com/blog/funny-school-memes-every-student-will-love/}
+\end{frame}
+
+\begin{frame}{Examples and exercises}
+\protect\hypertarget{examples-and-exercises}{}
+I tried to make practical examples whenever possible and relevant.
+Furthermore we will see some exercises and case studies.
+\end{frame}
+
+\begin{frame}{Rules of the game}
+\protect\hypertarget{rules-of-the-game}{}
+\begin{enumerate}
+\tightlist
+\item
+  \textbf{Participate!} If you have questions, doubts, comments, etc.
+  please ask
+\item
+  If something is \textbf{not clear or is discordant} with other
+  information from previous courses, tell me.
+\item
+  \textbf{Participate!}
+\item
+  Try do to \textbf{exercises and case studies}
+\item
+  \textbf{Participate!}
+\item
+  If you can, \textbf{bring your laptop with R}
+\end{enumerate}
+\end{frame}
+
+\begin{frame}{Final note}
+\protect\hypertarget{final-note}{}
+This is my first teaching experience with this course. Suggestions and
+critique are welcome.
+\end{frame}
+
+\begin{frame}[plain]
+\begin{center}
+  \faEnvelope \hspace{0.2cm} filippo.gambarota@unipd.it\\
+  \vspace{0.5cm}
+  \faGithub \hspace{0.2cm} \href{github.com/filippogambarota}{github.com/filippogambarota}
+\end{center}
+\end{frame}
+
+\end{document}
