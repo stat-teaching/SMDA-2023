@@ -33,8 +33,285 @@ library(patchwork)
 
 \tableofcontents[hideallsubsections]
 
+## Poisson distribution
+
+The Poisson distribution is defined as:
+
+$$
+p(y) = \frac{e^{-\mu} \mu^y}{y!}
+$$
+Where the mean is $\mu$ and the variance is $\mu$
+
+## Poisson distribution
+
+```{r}
+lambda <- 5
+x <- 0:15
+dx <- dpois(x, lambda)
+
+dat <- data.frame(y = rpois(1e4, lambda))
+
+ggplot() +
+    geom_histogram(data = dat,
+                   aes(x = y,
+                       y = ..density..),
+                   binwidth = 1,
+                   fill = "#22BDBF",
+                   color = "black") +
+    geom_point(aes(x = x, y = dx),
+               size = 4) +
+    geom_line(aes(x = x, y = dx)) +
+    mytheme() +
+    ylab("Density") +
+    xlab("y") +
+    ggtitle(latex2exp::TeX("$y \\sim Poisson(\\lambda = 5)$"))
+```
+
+## Poisson distribution
+
+As the mean increases also the variance increase and the distributions is approximately normal:
+
+```{r, echo = FALSE}
+dat <- data.frame(y_5 = rpois(1e3, lambda),
+                  y_30 = rpois(1e3, 30),
+                  y_100 = rpois(1e3, 100))
+
+dat <- dat |> 
+    pivot_longer(1:3) |>
+    mutate(name = parse_number(name))
+
+lvs <- latex2exp::TeX(sprintf("$\\lambda = %s$", unique(dat$name)))
+
+dat$namef <- factor(dat$name, labels = lvs)
+
+dat |> 
+    ggplot(aes(x = value, y = ..density..)) +
+    geom_histogram(binwidth = 1,
+                   fill = "#22BDBF",
+                   color = "black") +
+    facet_wrap(~namef, scales = "free", labeller = label_parsed) +
+    xlab("y") +
+    ylab("Density") +
+    mytheme()
+```
+
+## Poisson distribution
+
+```{r, echo = FALSE}
+dat <- sim_design(50, nx = list(x = runif(50, 0, 2))) |> 
+    sim_data(exp(log(2) + 1*x), model = "poisson")
+
+dat |> 
+    ggplot(aes(x = x, y = y)) +
+    geom_point() +
+    stat_smooth(method = "glm", method.args = list(family = poisson(link = "log")),
+                se = FALSE) +
+    mytheme() +
+    ggtitle(latex2exp::TeX("y = 0.69 + 2.71*x"))
+```
+
 ## Overdispersion
 
-**Overdispersion** concerns observing a greater variance compared to what would have been expected by the model. This is very common in Poisson models where the mean coincides with the variance.
+**Overdispersion** concerns observing a greater variance compared to what would have been expected by the model.
+
+An estimate of the overdispersion can be done calculating the ratio of squared pearson residuals and the degrees of freedom of the model <!-- TODO add why -->.
+
+$$
+P = \frac{\sum_{i=1}^{n}(\frac{y_i - \hat y_i}{\sqrt{\hat y_i}})^2}{df}
+$$
+Without overdispersion the ratio is aproximately 1, with overdispersion the ratio is greater than 1.
+
+## Testing overdispersion
+
+There are multiple ways of testing the overdispersion. The first is using the $P$ statistics computed in the slide before and calculate a p value based on the $\chi^2$ distribution with $df = n - p$ degrees of freedom with $n$ is the number of observations and $p$ the number of model coefficients. A p value lower than the $\alpha$ level suggest evidence for overdispersion.
+
+```{r, echo = TRUE}
+fit <- glm(y ~ x, data = dat, family = poisson())
+(overdisp <- sum(residuals(fit, type = "pearson")^2)/fit$df.residual) # > 1 evidence for overdispersion
+performance::check_overdispersion(fit)
+```
+
+## Causes of overdispersion
+
+There could be multiple causes for overdispersion:
+
+- outliers or anomalous obervations that increases the observed variance
+- missing important variables in the model
+
+## Outliers or anomalous data
+
+This (simulated) dataset contains $n = 30$ observations coming from a poisson model in the form $y = 1 + 2x$ and $n = 7$ observations coming from a model $y = 1 + 10x$.
+
+```{r}
+set.seed(222)
+
+dat <- sim_design(30, nx = list(x = runif(30), g = "Normal"))
+out <- sim_design(7, nx = list(x = runif(7), g = "Outlier"))
+
+dat <- sim_data(dat, 1 + 2*x, "poisson")
+out <- sim_data(out, 1 + 10* x, "poisson")
+
+datout <- rbind(dat, out)
+
+fit <- glm(y ~ x, data = datout, family = poisson())
+
+datout$ri <- residuals(fit, type = "pearson")
+datout$yi <- fitted(fit)
+
+p <- datout |> 
+    ggplot() +
+    geom_segment(aes(x = x, xend = x, y = yi, yend = y)) +
+    geom_point(aes(x = x, y = y, color = g),
+               size = 5) +
+    mytheme() +
+    theme(legend.position = "bottom",
+          legend.title = element_blank()) +
+    stat_smooth(aes(x = x, y = y),
+                se = FALSE,
+                color = "black",
+                method = "glm", method.args = list(family = poisson())) +
+    ylab("y")
+
+ggExtra::ggMarginal(p, type = "density", fill = "lightblue")
+```
+
+## Outliers or anomalous data
+
+Clearly the sum of squared pearson residuals is inflated by these values producing more variance compared to what should be expected.
+
+```{r}
+c(mean = mean(datout$y), var = var(datout$y)) # mean and variance should be similar
+performance::check_overdispersion(fit)
+```
+
+## Missing important variables in the model
+
+When important predictors in the model are missing, there could be more variance than expected from the Poisson model. For example, we have the relationship between number of symptoms during a month (`y`) and the self-report distress measure ($x$).
+
+```{r}
+n <- 200
+dat <- sim_design(n/2, 
+                  nx = list(distress = runif(n/2)), 
+                  cx = list(group = c("g1", "g2")),
+                  contr.sum2)
+
+dat$x0 <- dat$distress - mean(dat$distress)
+
+b0 <- log(10)
+b1 <- 0.8
+b2 <- 2
+
+dat <- sim_data(dat, exp(b0 + b1*group_c + b2*distress), "poisson")
+
+fit <- glm(y ~ distress * group, data = dat, family = "poisson")
+
+scat <- dat |> 
+    ggplot(aes(x = distress, y = y, color = group)) +
+    geom_point(size = 3) +
+    stat_smooth(method = "glm", 
+                se = FALSE,
+                method.args = list(family = poisson())) +
+    mytheme() +
+    theme(axis.title.y = element_blank(),
+          legend.title = element_blank())
+
+
+box <- dat |> 
+    ggplot(aes(x = y, fill = group)) +
+    geom_histogram(binwidth = 5,
+                   color = "black") +
+    mytheme() +
+    theme(legend.position = "none",
+          axis.title.x = element_blank(),
+          legend.title = element_blank()) +
+    ylab("Symptoms")
+
+box + scat
+```
+
+## Missing important variables in the model
+
+Despite unlikely, let's imagine to model this data using a `y ~ distress` model ignoring that there are two groups. The `group` is missing thus the model is estimating the average relatioship between `y ~ distress` across groups.
+
+```{r, echo = TRUE}
+scat <- dat |> 
+    ggplot() +
+    geom_point(aes(x = distress, y = y, color = group),
+               size = 3,
+               show.legend = FALSE) +
+    stat_smooth(aes(x = distress, y = y),
+                method = "glm", 
+                color = "black",
+                se = FALSE,
+                method.args = list(family = poisson())) +
+    mytheme() +
+    theme(axis.title.y = element_blank(),
+          legend.title = element_blank())
+
+ggExtra::ggMarginal(scat, groupFill = TRUE, margins = "y")
+```
+
+## Missing important variables in the model
+
+Fitting the model without `group` will increase the observed variance creating a source of overdispersion:
+
+```{r}
+fit <- glm(y ~ distress, data = dat, family = poisson(link = "log"))
+summary(fit)
+performance::check_overdispersion(fit)
+```
+
+## Missing important variables in the model
+
+Fitting the correct model would solve the issue taking into account that the overdispersion is no longer present when the `group` is considered:
+
+```{r}
+fit <- glm(y ~ distress + group, data = dat, family = poisson(link = "log"))
+summary(fit)
+performance::check_overdispersion(fit)
+```
+
+## Why worring about overdispersion?
+
+
+
+# Dealing with overdispersion
+
+## Dealing with overdispersion
+
+If all the variables are included and no outliers are present, the phenomenon itself contains more variability respect to the Poisson model predictions. There are two main approaches to deal with the situation:
+
+- quasi-poisson model
+- poisson-gamma model AKA negative-binomial model
+
+## Quasi-poisson model
+
+The quasi-poisson model allow estimating an extra parameter that is the overdispersion
+
+```{r}
+rnb_with_mvr <- function(n, mean, mvr){
+    # mvr = v / mean
+    v <- mean * mvr
+    # v = mu + mu^2/size
+    size <- mean^2 / (v + mean)
+    msg <- sprintf("lambda = %.3f, var = %.3f, theta = %.3f",
+                   mean, v, size)
+    cat(msg)
+    rnbinom(n = n, mu = mean, size = size)
+}
+
+x <- rnb_with_mvr(1e6, 20, 1)
+y <- rpois(1e6, 20)
+
+summary(x)
+summary(y)
+
+mean(x)
+var(x)
+mean(y)
+var(y)
+
+```
+
 
 ## References

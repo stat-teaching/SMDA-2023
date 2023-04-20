@@ -264,6 +264,7 @@ sim_design <- function(ns, nx = NULL, cx = NULL, contrasts = contr.treatment){
     data <- data.frame(id = 1:ns)
     if(!is.null(cx)){
         data <- tidyr::expand_grid(data, !!!cx)
+        data$id <- 1:nrow(data)
     }
     if(!is.null(nx)){
         data <- cbind(data, nx)
@@ -274,6 +275,7 @@ sim_design <- function(ns, nx = NULL, cx = NULL, contrasts = contr.treatment){
     }else{
         data <- tibble::tibble(dplyr::mutate(data, across(where(is.character), as.factor)))
     }
+    data <- dplyr::select(data, id, everything())
     return(data)
 }
 
