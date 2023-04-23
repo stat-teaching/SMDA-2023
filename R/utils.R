@@ -347,3 +347,19 @@ contr.sum2 <- function(n){
     names(fct_num) <- paste0(names(fct_num), "_c")
     cbind(data, fct_num)
 }
+
+rnb <- function(n, mu, vmr){
+    if(vmr == 1){
+        msg <- sprintf("y ~ Poisson(mu = %2.f), vmr = %.2f", mu, vmr)
+        cat(msg)
+        rpois(n, mu)
+    }else{
+        # vmr = v / m
+        v <- mu * vmr
+        # v = mu + mu^2/phi
+        phi <- -(mu^2/(mu - v))
+        msg <- sprintf("y ~ NegBin(mu = %2.f, phi = %.2f), var = %.2f, vmr = %.2f", mu, phi, v, vmr)
+        message(msg)
+        rnegbin(n, mu, phi)
+    }
+}

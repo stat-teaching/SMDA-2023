@@ -131,6 +131,89 @@ fit <- glm(y ~ x, data = dat, family = poisson())
 performance::check_overdispersion(fit)
 ```
 
+## Overdispersion intuition
+
+If data are generated from a Poisson model, the mean $\mu = \lambda$ and the variance $\sigma^2 = \lambda$. For this reason the standardized (pearson) residuals should be normally distributed with mean 0 and standard deviation 1. In the presence of overdispersion, the residuals will be larger:
+
+```{r}
+dat <- sim_design(100, nx = list(x = runif(100)))
+
+dat$yp <- rpois(100, exp(log(5) + 0.2*dat$x))
+dat$ynb <- rnbinom(100, mu = exp(log(5) + 0.2*dat$x), size = 2)
+
+fit_yp <- glm(yp ~ x , data = dat, family = poisson(link = "log"))
+fit_ynb <- glm(ynb ~ x , data = dat, family = poisson(link = "log"))
+
+dat$rpi <- residuals(fit_yp, type = "pearson")
+dat$rnbi <- residuals(fit_ynb, type = "pearson")
+dat$yip <- fitted(fit_yp)
+dat$yinb <- fitted(fit_ynb)
+
+plot_fit_pois <- dat |> 
+    ggplot(aes(x = yip, y = rpi)) +
+    geom_point() +
+    ylim(c(-5, 5)) +
+    geom_hline(yintercept = c(-1, 1),
+               linetype = "dashed") +
+    mytheme() +
+    ylab("Pearson residuals") +
+    xlab("Fitted") +
+    ggtitle("No overdispersion") +
+    theme(plot.title = element_text(size = 15))
+
+plot_fit_pois <- ggExtra::ggMarginal(plot_fit_pois, margins = "y", type = "density",
+                                     fill = "skyblue")
+
+plot_fit_over <- dat |> 
+    ggplot(aes(x = yinb, y = rnbi)) +
+    geom_point() +
+    ylim(c(-5, 5)) +
+    geom_hline(yintercept = c(-1, 1),
+               linetype = "dashed") +
+    mytheme() +
+    ylab("Pearson residuals") +
+    xlab("Fitted") +
+    ggtitle("Overdispersion") +
+    theme(plot.title = element_text(size = 15),
+          axis.title.y = element_blank())
+
+plot_fit_over <- ggExtra::ggMarginal(plot_fit_over, margins = "y", type = "density",
+                                     fill = "skyblue")
+
+cowplot::plot_grid(plot_fit_pois, plot_fit_over)
+```
+
+`r ref("Gelman e Hill (2006)", 6, 114)`
+
+## Mean-variance relationship
+
+```{r}
+vrm <- c(1, 2, 5, 10)
+
+dat <- data.frame(vrm = vrm)
+
+dat$y <- map(dat$vrm, function(x) rnb(1e5, 10, x))
+
+dat$mvr_t <- factor(dat$vrm, labels = latex2exp::TeX(sprintf("\\frac{\\sigma^2}{\\mu} = %s", dat$vrm)))
+
+dat <- dat |> unnest(y)
+dat$d <- dpois(dat$y, 10)
+
+dd <- expand_grid(y = 0:50, vrm)
+dd$d <- dpois(dd$y, 10)
+
+dat |> 
+    ggplot(aes(x = y, y = ..density..)) +
+    geom_histogram(binwidth = 1) +
+    facet_wrap(~mvr_t, labeller = label_parsed, scales = "free") +
+    geom_point(data = dd,
+               aes(x = y, y = d),
+               size = 3) +
+    geom_line(data = dd,
+              aes(x = y, y = d)) +
+    mytheme()
+```
+
 ## Causes of overdispersion
 
 There could be multiple causes for overdispersion:
@@ -273,7 +356,7 @@ performance::check_overdispersion(fit)
 
 ## Why worring about overdispersion?
 
-
+Overdispersion is mainly problematic because of the influence on **parameters standard error**
 
 # Dealing with overdispersion
 
