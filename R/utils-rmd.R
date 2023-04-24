@@ -86,16 +86,26 @@ trim_df <- function(data, prows = 4){
     return(trimmed)
 }
 
+fixlatex <- function(x){
+    stringr::str_replace_all(x, "_", ".")
+}
+
 mytab <- function(data, fontsize = 7, colnames = NA){
+    if(is.na(colnames)){
+        colnames(data) <- stringr::str_replace_all(names(data), "_", ".")
+    }
+    
+    # data <- dplyr::mutate(data, 
+    #                       dplyr::across(where(is.character)|where(is.factor),fixlatex))
     data |> 
-        kable(booktabs = TRUE, 
+        kableExtra::kable(booktabs = TRUE, 
               digits = 3,
               col.names = colnames, 
               format = "latex",
               escape = FALSE) |> 
-        kable_styling(position = "center", 
-                      font_size = fontsize) |> 
-        row_spec(0, bold = TRUE)
+        kableExtra::kable_styling(position = "center", 
+                                  font_size = fontsize) |> 
+        kableExtra::row_spec(0, bold = TRUE)
 }
 
 mytheme <- function(size = 15){
@@ -126,4 +136,9 @@ format <- function(x, what){
 
 code <- function(x){
     sprintf("\\texttt{%s}", x)
+}
+
+question <- function(txt){
+    p <- "\\begin{center}\n\\huge\n\\textcolor{myblue}{\\textbf{%s}}\n\\end{center}"
+    cat(sprintf(p, txt))
 }

@@ -1,7 +1,7 @@
 ---
 title: "Binomial Generalized Linear Models"
 author: "Filippo Gambarota"
-date: "2022/2023"
+date: "2022/2023 \\linebreak \\linebreak Updated on `r Sys.Date()`"
 institute: "University of Padova"
 bibliography: "https://raw.githubusercontent.com/filippogambarota/bib-database/main/references.bib"
 csl: "https://raw.githubusercontent.com/citation-style-language/styles/master/ieee.csl"

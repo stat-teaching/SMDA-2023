@@ -1,7 +1,7 @@
 ---
 title: "Introduction to Generalized Linear Models"
 author: "Filippo Gambarota"
-date: "2022/2023"
+date: "2022/2023 \\linebreak \\linebreak Updated on `r Sys.Date()`"
 institute: "University of Padova"
 bibliography: "https://raw.githubusercontent.com/filippogambarota/bib-database/main/references.bib"
 csl: "https://raw.githubusercontent.com/citation-style-language/styles/master/ieee.csl"
@@ -53,11 +53,16 @@ funs <- get_funs(here("R", "utils.R"))
 
 ## Quick recap about Gaussian distribution
 
+- The Gaussian distribution is part of the Exponential family
+- It is defined with mean ($\mu$) and the standard deviation ($\sigma$) that are independent
+- It is symmetric with the same value for mean, mode and median
+- The support is $[- \infty, + \infty]$
+
+The Probability Density Function (PDF) is:
+
 $$
 f(x) = \frac{1}{\sigma\sqrt{2\pi}} e^{-\frac{1}{2}(\frac{x - \mu}{\sigma})^2}
 $$
-
-Were $\mu$ is the **mean** and $\sigma$ is the **standard deviation**
 
 ## Quick recap about Gaussian distribution
 
@@ -71,9 +76,19 @@ ggnorm(0, 1) +
 But not always gaussian-like variables!
 \end{center}
 
+## Quick recap about Gaussian distribution
+
+In fact, in Psychology, variables do not always satisfy the properties of the Gaussian distribution. For example:
+
+- Reaction times
+- Accuracy
+- Percentages or proportions
+- Discrete counts
+- Likert scales
+
 ## Reaction times
 
-Measuring reaction times during a cognitive task. Non-negative and proably skewed data.
+Measuring **reaction times during a cognitive task**. Non-negative and probably skewed data.
 
 ```{r, echo = FALSE}
 dat <- data.frame(
@@ -94,27 +109,14 @@ dat |>
 Counting the number of people passing the exam out of the total. Discrete and non-negative. A series of binary (i.e., *bernoulli*) experiments.
 
 ```{r, echo = FALSE}
-dat <- data.frame(x = rbinom(1e5, 10, 0.7))
-
-dat |> 
-    ggplot(aes(x = factor(x))) +
-    geom_bar(fill = "lightblue",
-             color = "black") +
-    xlab("Number of success out of 10 trials") +
-    ylab("Count") +
-    mytheme()
-```
-
-## Binary outcomes
-
-```{r, echo = FALSE}
 dat <- data.frame(y = c(70, 30), x = c("Passed", "Failed"))
 
 dat |> 
     ggplot(aes(x = x, y = y)) +
     geom_col(color = "black",
              fill = "lightblue") +
-    ylab("Count") +
+    ylab("%") +
+    ylim(c(0, 100)) +
     mytheme() +
     theme(axis.title.x = element_blank()) +
     ggtitle("Statistics Final Exam (n = 100)")
@@ -122,7 +124,7 @@ dat |>
 
 ## Counts
 
-Counting the number of new patients per week. Discrete and non-negative values.
+Counting the number of new hospitalized patients during one month in different cities. Discrete and non-negative values.
 
 ```{r, echo = FALSE}
 dat <- data.frame(x = rpois(1e5, 15))
@@ -132,68 +134,126 @@ dat |>
     geom_histogram(binwidth = 2,
                    color = "black",
                    fill = "lightblue") +
-    xlab("Number of new patients per week") +
+    xlab("Number of new patients during one month") +
     ylab("Count") +
     mytheme()
 ```
 
+## Question...
+
+```{r, results='asis', echo=FALSE}
+question("Should we use a linear model for these variables?")
+```
+
 ## Should we use a linear model for these variables?
+
+Let's try to fit a linear model on the probability of passing the exam as a function of the hours of study:
 
 ```{r, echo = FALSE}
 # y = number of exercises solved in 1 semester
 # x = percentage of attended lectures
 
-n <- 30
-x <- rep(0:10, each = n)
+n <- 50
+x <- round(runif(n, 0, 100))
 b0 <- 0.01
-b1 <- 0.8
+b1 <- 0.08
 y <- rbinom(length(x), 1, plogis(qlogis(b0) + b1*x))
 
-dat <- data.frame(x, y)
+dat <- data.frame(student = 1:n, study_hours = x, passing = y)
 
 dat |> 
-    ggplot(aes(x = x, y = y)) +
+    trim_df() |> 
+    mytab()
+```
+
+## Should we use a linear model for these variables?
+
+Let's plot the data:
+
+```{r, echo = FALSE}
+exam_plot <- dat |>
+    ggplot(aes(x = study_hours, y = passing)) +
     geom_hline(yintercept = 0, linetype = "dashed", col = "red") +
     geom_point(size = 3,
                alpha = 0.5,
                position = position_jitter(height = 0.03)) +
-    geom_smooth(method = "lm", 
-                se = F) +
     mytheme() +
-    scale_x_continuous(breaks = 0:10) +
-    xlab("Questions difficulty") +
-    ylab("Probability of passing the exam")
+    xlab("Hours of study") +
+    ylab("Passing the exam")
+exam_plot
 ```
 
 ## Should we use a linear model for these variables?
+
+Let's fit a linear model `passing ~ study_hours` using `lm`:
+
+```{r, echo = FALSE}
+exam_plot +
+    geom_smooth(method = "lm", se = F)
+```
+
+\begin{center}
+Do you see something strange?
+\end{center}
+
+## Should we use a linear model for these variables?
+
+A little **spoiler**, the relationship should be probably like this:
+
+```{r, echo = FALSE}
+exam_plot +
+    stat_smooth(method = "glm", 
+                se = FALSE,
+                method.args = list(family = binomial))
+```
+
+## Should we use a linear model for these variables?
+
+Another example, the number of solved exercises in a semester as a function of the number of attended lectures:
 
 ```{r, echo = FALSE}
 # y = number of exercises solved in 1 semester
 # x = percentage of attended lectures
 
-n <- 30
-x <- runif(n, 0, 1)
-b0 <- 0
-b1 <- 4
-y <- rpois(n, exp(b0 + b1*x))
+n <- 100
+x <- round(runif(n, 0, 63))
+y <- rpois(n, exp(0 + 0.05*x))
 
-dat <- data.frame(x, y)
+dat <- data.frame(student = 1:n, attended_lectures = x, nsolved = y)
 
 dat |> 
-    ggplot(aes(x = x*100, y = y)) +
-    geom_hline(yintercept = 0, linetype = "dashed", col = "red") +
-    geom_point(size = 3) +
-    geom_smooth(method = "lm", 
-                se = F) +
-    mytheme() +
-    xlab("Percetage of attended lectures") +
-    ylab("Solved exercises")
+    trim_df() |> 
+    mytab()
 ```
 
 ## Should we use a linear model for these variables?
 
 ```{r, echo = FALSE}
-fit <- lm(y ~ x, data = dat)
+exam_plot <- dat |> 
+    ggplot(aes(x = attended_lectures, y = nsolved)) +
+    geom_hline(yintercept = 0, linetype = "dashed", col = "red") +
+    geom_point(size = 3) +
+    mytheme() +
+    xlab("Number of attended lectures") +
+    ylab("Solved exercises")
+exam_plot
+```
+
+## Should we use a linear model for these variables?
+
+Again, fitting the linear model seems partially appropriate but there are some problems:
+
+```{r, echo = FALSE}
+exam_plot +
+    geom_smooth(method = "lm", se = FALSE)
+```
+
+## Should we use a linear model for these variables?
+
+Also the residuals are quite problematic:
+
+```{r, echo = FALSE}
+fit <- lm(nsolved ~ attended_lectures, data = dat)
 
 dfit <- data.frame(
     fitted = fitted(fit),
@@ -213,18 +273,45 @@ res_fit <- dfit |>
     geom_point() +
     mytheme() +
     ylab("Residuals") +
-    xlab("Fitted")
+    xlab("Fitted") +
+    geom_smooth(se = FALSE, color = "red")
 qqn + res_fit
 ```
 
-## A new class of models
+## Should we use a linear model for these variables?
+
+Another little spoiler, the model should consider both the support of the `y` variable and the non linear pattern. Probably something like this:
+
+```{r, echo = FALSE}
+exam_plot +
+    stat_smooth(method = "glm", 
+                se = FALSE,
+                method.args = list(family = poisson))
+```
+
+## So what?
+
+Both linear models somehow capture the expected relationship but there are serious fitting problems:
+
+- impossible predictions
+- poor fitting for non-linear patterns
+
+As a general rule in statistics:
+
+\begin{displayquote}
+"All models are wrong, some are useful."
+
+`r tufte::quote_footer('--- George Box')`
+\end{displayquote}
+
+## We need a new class of models...
 
 - We need that our model take into account the **features of our response variable**
 - We need a model that, **with appropriate transformation**, keep **properties of standard linear models**
 - We need a model that is **closer to the true data generation process**
 
 \begin{center}
-Let's switch to Generalized Linear Models!
+\textcolor{myblue}{Let's switch to Generalized Linear Models!}
 \end{center}
 
 # Generalized Linear Models
@@ -235,7 +322,7 @@ For a detailed introduction about GLMs
 
 - Chapters: 1 (intro), 4 (GLM fitting), 5 (GLM for binary data)
 
-```{r, echo = FALSE, out.width="50%"}
+```{r, echo = FALSE, out.width="30%"}
 knitr::include_graphics("img/agresti2015-foundations-lm-glm.jpg")
 ```
 
@@ -254,7 +341,7 @@ knitr::include_graphics("img/agresti2019-intro-to-categorical.jpg")
 Great resource for interpreting Binomial GLM parameters:
 
 - Chapters: 13-14 (Binomial Logistic GLM), 15 (Poisson and others GLMs)
-```{r, echo = FALSE, out.width="50%"}
+```{r, echo = FALSE, out.width="30%"}
 knitr::include_graphics("img/gelman2020-reg-and-other-stories.jpg")
 ```
 
@@ -264,7 +351,7 @@ Detailed GLMs book. Very useful especially for the diagnostic part:
 
 - Chapters: 8 (intro), 9 (Binomial GLM), 10 (Poisson GLM and overdispersion)
 
-```{r, echo = FALSE, out.width="50%"}
+```{r, echo = FALSE, out.width="30%"}
 knitr::include_graphics("img/dunn2018-glm.jpg")
 ```
 
@@ -272,8 +359,6 @@ knitr::include_graphics("img/dunn2018-glm.jpg")
 
 - models that assume distributions other than the normal distributions
 - models that considers non-linear relationships
-
-<!-- TODO add something else -->
 
 ## Recipe for a GLM
 
@@ -283,19 +368,43 @@ knitr::include_graphics("img/dunn2018-glm.jpg")
 
 ## Random Component
 
-The **random component** of a GLM identify the response variable $Y$ and the appropriate probability distribution. For example for a numerical and continous variable we could use a Normal distribution (i.e., a standard linear model). For a discrete variable representing counts of events we could use a Poisson distribution.
+The **random component** of a GLM identify the response variable $Y$ and the appropriate probability distribution. For example for a numerical and continuous variable we could use a Normal distribution (i.e., a standard linear model). For a discrete variable representing counts of events we could use a Poisson distribution, etc.
 
 ## Systematic Component
 
-The **systematic component** or *linear predictor* of a GLM is the combination of explanatory variables i.e. $\beta_0 + \beta_1x_1 + ... + \beta_px_p$.
+The **systematic component** or *linear predictor* ($\eta$) of a GLM is the combination of explanatory variables i.e. $\beta_0 + \beta_1x_1 + ... + \beta_px_p$.
+
+\begin{align*}
+\eta = \beta_0 + \beta_1x_1 + ... + \beta_px_p
+\end{align*}
 
 ## Link Function
 
-The **link function** $g(\mu)$ is the function that connects the expected value (i.e., the mean $\mu$) of the probability distribution (i.e., the random component) with the *linear combination* of predictors $g(\mu) = \beta_0 + \beta_1x_1 + ... + \beta_px_p$
+- The **link function** $g(\mu)$ is the function that connects the expected value (i.e., the mean $\mu$) of the probability distribution (i.e., the random component) with the *linear combination* of predictors $g(\mu) = \beta_0 + \beta_1x_1 + ... + \beta_px_p$. The inverse of the link function $g^{-1}$ map the linear predictor ($\eta$) into the original scale.
 
-The simplest **link function** is the **identity link** where $g(\mu) = \mu$ and correspond to the classic linear model. In fact, the linear regression is just a GLM with a **Gaussian random component** and the **identity** link function.
+\begin{align*}
+g(\mu) = \beta_0 + \beta_1x_1 + ... + \beta_px_p \\
+\mu = g^{-1}(\beta_0 + \beta_1x_1 + ... + \beta_px_p) 
+\end{align*}
 
-There are multiple **random components** and **link functions** for example with a 0/1 binary variable the usual choice is using a **Binomial** random component and the **logit** link function.
+## Link function
+
+- The simplest **link function** is the **identity link** where $g(\mu) = \mu$ and correspond to the standard linear model. In fact, the linear regression is just a GLM with a **Gaussian random component** and the **identity** link function.
+
+- There are multiple **random components** and **link functions** for example with a 0/1 binary variable the usual choice is using a **Binomial** random component and the **logit** link function.
+
+## Common link functions
+
+```{r, echo = FALSE}
+fam <- c("gaussian", "binomial", "binomial", "poisson")
+link <- c("identity", "logit", "probit", "log")
+range <- c("$(-\\infty,+\\infty)$", "$\\frac{0, 1, ..., n_{i}}{n_{i}}$",
+           "$\\frac{0, 1, ..., n_{i}}{n_{i}}$",
+           "$0, 1, 2, ...$")
+
+linktab <- data.frame(Family = fam, Link = link, Range = range)
+linktab |> mytab()
+```
 
 # Relevant distributions
 
@@ -420,3 +529,5 @@ hist(y)
 ```
 ::::
 :::
+
+## References
