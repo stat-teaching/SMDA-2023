@@ -1,5 +1,5 @@
 ---
-title: "Introduction to Generalized Linear Models"
+title: "Binomial Generalized Linear Models"
 author: "Filippo Gambarota"
 date: "2022/2023"
 institute: "University of Padova"
@@ -22,7 +22,7 @@ knitr::opts_chunk$set(echo = TRUE,
                       message = FALSE,
                       warning = FALSE,
                       fig.align = "center",
-                      out.width = "100%")
+                      out.width = "80%")
 
 def.chunk.hook  <- knitr::knit_hooks$get("chunk")
 knitr::knit_hooks$set(chunk = function(x, options) {
@@ -49,390 +49,7 @@ funs <- get_funs(here("R", "utils.R"))
 \scriptsize
 \tableofcontents
 
-# Beyond the Gaussian distribution
-
-## Quick recap about Gaussian distribution
-
-$$
-f(x) = \frac{1}{\sigma\sqrt{2\pi}} e^{-\frac{1}{2}(\frac{x - \mu}{\sigma})^2}
-$$
-
-Were $\mu$ is the **mean** and $\sigma$ is the **standard deviation**
-
-## Quick recap about Gaussian distribution
-
-```{r, echo = FALSE}
-ggnorm(0, 1) + 
-    mytheme() +
-    ggtitle(latex2exp::TeX("$\\mu = 0$, $\\sigma = 1$"))
-```
-
-\begin{center}
-But not always gaussian-like variables!
-\end{center}
-
-## Reaction times
-
-Measuring reaction times during a cognitive task. Non-negative and proably skewed data.
-
-```{r, echo = FALSE}
-dat <- data.frame(
-    x = rgamma(1e5, 9, scale = 0.5)*100
-) 
-
-dat |> 
-    ggplot(aes(x = x)) +
-    geom_histogram(fill = "lightblue",
-                   color = "black") +
-    xlab("Reaction Times (ms)") +
-    ylab("Count") +
-    mytheme()
-```
-
-## Binary outcomes
-
-Counting the number of people passing the exam out of the total. Discrete and non-negative. A series of binary (i.e., *bernoulli*) experiments.
-
-```{r, echo = FALSE}
-dat <- data.frame(x = rbinom(1e5, 10, 0.7))
-
-dat |> 
-    ggplot(aes(x = factor(x))) +
-    geom_bar(fill = "lightblue",
-             color = "black") +
-    xlab("Number of success out of 10 trials") +
-    ylab("Count") +
-    mytheme()
-```
-
-## Binary outcomes
-
-```{r, echo = FALSE}
-dat <- data.frame(y = c(70, 30), x = c("Passed", "Failed"))
-
-dat |> 
-    ggplot(aes(x = x, y = y)) +
-    geom_col(color = "black",
-             fill = "lightblue") +
-    ylab("Count") +
-    mytheme() +
-    theme(axis.title.x = element_blank()) +
-    ggtitle("Statistics Final Exam (n = 100)")
-```
-
-## Counts
-
-Counting the number of new patients per week. Discrete and non-negative values.
-
-```{r, echo = FALSE}
-dat <- data.frame(x = rpois(1e5, 15))
-
-dat |> 
-    ggplot(aes(x = x)) +
-    geom_histogram(binwidth = 2,
-                   color = "black",
-                   fill = "lightblue") +
-    xlab("Number of new patients per week") +
-    ylab("Count") +
-    mytheme()
-```
-
-## Should we use a linear model for these variables?
-
-```{r, echo = FALSE}
-# y = number of exercises solved in 1 semester
-# x = percentage of attended lectures
-
-n <- 30
-x <- rep(0:10, each = n)
-b0 <- 0.01
-b1 <- 0.8
-y <- rbinom(length(x), 1, plogis(qlogis(b0) + b1*x))
-
-dat <- data.frame(x, y)
-
-dat |> 
-    ggplot(aes(x = x, y = y)) +
-    geom_hline(yintercept = 0, linetype = "dashed", col = "red") +
-    geom_point(size = 3,
-               alpha = 0.5,
-               position = position_jitter(height = 0.03)) +
-    geom_smooth(method = "lm", 
-                se = F) +
-    mytheme() +
-    scale_x_continuous(breaks = 0:10) +
-    xlab("Questions difficulty") +
-    ylab("Probability of passing the exam")
-```
-
-## Should we use a linear model for these variables?
-
-```{r, echo = FALSE}
-# y = number of exercises solved in 1 semester
-# x = percentage of attended lectures
-
-n <- 30
-x <- runif(n, 0, 1)
-b0 <- 0
-b1 <- 4
-y <- rpois(n, exp(b0 + b1*x))
-
-dat <- data.frame(x, y)
-
-dat |> 
-    ggplot(aes(x = x*100, y = y)) +
-    geom_hline(yintercept = 0, linetype = "dashed", col = "red") +
-    geom_point(size = 3) +
-    geom_smooth(method = "lm", 
-                se = F) +
-    mytheme() +
-    xlab("Percetage of attended lectures") +
-    ylab("Solved exercises")
-```
-
-## Should we use a linear model for these variables?
-
-```{r, echo = FALSE}
-fit <- lm(y ~ x, data = dat)
-
-dfit <- data.frame(
-    fitted = fitted(fit),
-    residuals = residuals(fit)
-)
-
-qqn <- dfit |> 
-    ggplot(aes(sample = residuals)) + 
-    stat_qq() + 
-    stat_qq_line() +
-    xlab("Theoretical Quantiles") +
-    ylab("Residuals") +
-    mytheme()
-
-res_fit <- dfit |> 
-    ggplot(aes(x = fitted, y = residuals)) +
-    geom_point() +
-    mytheme() +
-    ylab("Residuals") +
-    xlab("Fitted")
-qqn + res_fit
-```
-
-## A new class of models
-
-- We need that our model take into account the **features of our response variable**
-- We need a model that, **with appropriate transformation**, keep **properties of standard linear models**
-- We need a model that is **closer to the true data generation process**
-
-\begin{center}
-Let's switch to Generalized Linear Models!
-\end{center}
-
-# Generalized Linear Models
-
-## Main references
-
-For a basic and well written introduction about GLM, especially the Binomial GLM
-
-- Chapters: 3 (intro GLMs), 4-5 (Binomial Logistic Regression)
-
-```{r}
-knitr::include_graphics("img/agresti2019-intro-to-categorical.jpg")
-```
-::::
-:::::: columns
-:::: column
-
-For a detailed introduction about GLMs
-
-- Chapters: 1 (intro), 4 (GLM fitting), 5 (GLM for binary data)
-
-```{r}
-knitr::include_graphics("img/agresti2015-foundations-lm-glm.jpg")
-```
-
-::::
-:::: column
-
-## Main references
-
-Great resource for interpreting Binomial GLM parameters:
-
-- Chapters: 13-14 (Binomial Logistic GLM), 15 (Poisson and others GLMs)
-```{r}
-knitr::include_graphics("img/gelman2020-reg-and-other-stories.jpg")
-```
-::::
-:::
-
-::: columns
-:::: column
-
-Detailed GLMs book. Very useful especially for the diagnostic part:
-
-- Chapters: 8 (intro), 9 (Binomial GLM), 10 (Poisson GLM and overdispersion)
-
-```{r}
-knitr::include_graphics("img/dunn2018-glm.jpg")
-```
-
-::::
-:::: column
-
-## General idea
-
-- models that assume distributions other than the normal distributions
-- models that considers non-linear relationships
-
-<!-- TODO add something else -->
-
-## Recipe for a GLM
-
-- **Random Component**
-- **Systematic Component**
-- **Link Function**
-
-## Random Component
-
-The **random component** of a GLM identify the response variable $Y$ and the appropriate probability distribution. For example for a numerical and continous variable we could use a Normal distribution (i.e., a standard linear model). For a discrete variable representing counts of events we could use a Poisson distribution.
-
-## Systematic Component
-
-The **systematic component** or *linear predictor* of a GLM is the combination of explanatory variables i.e. $\beta_0 + \beta_1x_1 + ... + \beta_px_p$.
-
-## Link Function
-
-The **link function** $g(\mu)$ is the function that connects the expected value (i.e., the mean $\mu$) of the probability distribution (i.e., the random component) with the *linear combination* of predictors $g(\mu) = \beta_0 + \beta_1x_1 + ... + \beta_px_p$
-
-The simplest **link function** is the **identity link** where $g(\mu) = \mu$ and correspond to the classic linear model. In fact, the linear regression is just a GLM with a **Gaussian random component** and the **identity** link function.
-
-There are multiple **random components** and **link functions** for example with a 0/1 binary variable the usual choice is using a **Binomial** random component and the **logit** link function.
-
-# Relevant distributions
-
-## Binomial distribution
-
-The probability of having $k$ success (e.g., 0, 1, 2, etc.) out of $n$ trials with a probability of success $p$ is:
-
-$$
-f(n, k, p) = Pr(X = k) = \binom{n}{k} p^k(1 - p)^{n - k}
-$$
-
-The $np$ is the mean of the binomial distribution and $np(1 - p)$ is the variance.
-
-## Bernoulli distribution
-
-The **binomial** distribution is just a repetition of $k$ **Bernoulli** trials. A single Bernoulli trial is:
-
-\begin{align*}
-f(x, p) = p^x (1 - p)^{1 - x} \\
-x \in \{0, 1\}
-\end{align*}
-
-The mean is $p$ and the variance is $p(1 - p)$
-
-## Bernoulli and Binomial
-
-The simplest situation for a Bernoulli trials is a coin flip. In R:
-
-::: columns
-:::: column
-
-```{r}
-n <- 1
-p <- 0.7
-rbinom(1, n, p) # a single bernoulli trial
-
-n <- 10
-rbinom(1, 10, p) # n bernoulli trials
-```
-
-::::
-:::: column
-```{r, echo = FALSE}
-n <- 30
-p <- 0.7
-dat <- data.frame(k = 0:n)
-dat$y <- dbinom(dat$k, n, p)
-
-dat |> 
-    ggplot(aes(x = k, y = y)) +
-    geom_point() +
-    geom_segment(aes(x = k, xend = k, y = 0, yend = y)) +
-    mytheme() +
-    ylab("dbinom(x, n, p)") +
-    ggtitle(latex2exp::TeX("$n = 30$, $p = 0.7$"))
-
-```
-::::
-:::
-
-## Poisson distribution
-
-The number of events $k$ during a fixed time interval (e.g., number of new user on a website in 1 week) is:
-
-\begin{align*}
-f(j,\lambda) = Pr(X = k) = \frac{\lambda^k e^{-\lambda}}{k!}
-\end{align*}
-
-## Poisson distribution
-
-```{r, echo = FALSE}
-lambda <- 10
-dat <- data.frame(x = 0:100)
-dat$y <- dpois(dat$x, lambda)
-
-dat |> 
-    filter(x < 30) |> 
-    ggplot(aes(x = x, y = y)) +
-    geom_line() +
-    geom_point(size = 4, shape = 21, stroke = 3, color = "white",
-               fill = "black") +
-    mytheme() +
-    ylab(latex2exp::TeX("dpois(x, $\\lambda$)")) +
-    ggtitle(latex2exp::TeX("$\\lambda = 10$"))
-```
-
-The mean and also the variance is $\lambda$.
-
-# Data simulation *[EXTRA]*
-
-## Data simulation *[EXTRA]*
-
-- During the course we will try to simulate some data. Simulating data is an amazing education tool to understand a statistical model.
-- By simulating from a **generative model** we are doing **Monte Carlo Simulations** [@Gentle2009-cj]
-
-## Data simulation *[EXTRA]*
-
-::: columns
-
-:::: column
-```{r, size = "tiny"}
-n <- 1e5 # number of experiments
-nt <- 100 # number of subjects
-p <- 0.7 # probability of success
-nc <- rbinom(n, nt, p)
-```
-
-```{r, echo = FALSE}
-hist(nc/nt)
-```
-::::
-
-:::: column
-```{r, size = "tiny"}
-n <- 1e5 # number of subjects
-lambda <- 30 # mean/variance
-y <- rpois(n, lambda)
-```
-
-```{r, echo = FALSE}
-hist(y)
-```
-::::
-
-:::
-
-# Binomial GLM
+# Binomial data
 
 ## Example: Passing the exam
 
@@ -486,10 +103,10 @@ Each cell probability $\pi_{ij}$ is computed as $\pi_{ij}/n$
 
 The most common way to analyze a 2x2 contingency table is using the **odds ratio** (OR). Firsly let's define *the odds of success* as:
 
-$$
-odds = \frac{\pi}{1 - \pi} \;\;\;\;
+\begin{align*}
+odds = \frac{\pi}{1 - \pi} \\
 \pi = \frac{odds}{odds + 1}
-$$
+\end{align*}
 
 - the **odds** are non-negative, ranging between 0 and $+\infty$
 - an **odds** of e.g. 3 means that we expect 3 *success* for each *failure*
@@ -649,7 +266,8 @@ plot_logit <- ggplot() +
                  linewidth = 0.3) +
     mytheme() +
     xlab(latex2exp::TeX("$X_1$")) +
-    ylab(latex2exp::TeX("$logit(\\pi)$"))
+    ylab(latex2exp::TeX("$logit(\\pi)$")) +
+    theme(aspect.ratio=1)
 
 plot_invlogit <- ggplot() +
     stat_function(data = data.frame(x = c(0,1)), 
@@ -673,6 +291,7 @@ plot_invlogit <- ggplot() +
                  linetype = "dashed",
                  linewidth = 0.3) +
     mytheme() +
+    theme(aspect.ratio=1) +
     xlab(latex2exp::TeX("$X_1$")) +
     ylab(latex2exp::TeX("$logit^{-1}(\\pi)$"))
 
@@ -687,7 +306,7 @@ ciao
 
 ## Binomial GLM - Model fitting in R
 
-```{r}
+```{r, echo = FALSE}
 knitr::include_graphics("img/glm-fitting-R.png")
 ```
 
@@ -696,11 +315,12 @@ knitr::include_graphics("img/glm-fitting-R.png")
 We can model the contingency table presented before. We put data in **binary form**:
 
 ```{r, echo = FALSE}
+set.seed(222)
+
 n <- 100
 n_watching <- n/2 # just for simplicity
 p_pass_yes <- 0.7
 p_pass_no <- 0.3
-
 dat <- data.frame(
     tv_shows = rep(c(1, 0), each = n_watching)
 )
@@ -713,12 +333,10 @@ b1 <- 3.5 # odds ratio between watching and not watching
 dat$exam <- rbinom(n, 1, plogis(qlogis(b0) + log(b1)*dat$tv_shows))
 ```
 
-```{r}
+```{r, echo = FALSE}
 dat |> 
     trim_df()
-# TODO add table here
 ```
-
 
 ## Binomial GLM - Intercept only model
 
@@ -790,7 +408,7 @@ odds_ratio(mean(dat$exam[dat$tv_shows == 1]),
 The residual deviance of a GLM is conceptually similar to the residual standard deviation of a standard linear model.
 
 $$
-D = -2loglik(\beta)
+D = -2log \mathcal{L}(\beta)
 $$
 
 The distance between a perfect model (i.e., saturated) and the current model can be considered as a goodness of fit measure. SPOILER the deviance is also useful to calculate a $R^2$ like measure comparing the null model with the actual model. <!-- TODO fix this -->
@@ -848,7 +466,7 @@ Using contrast coding and centering/standardizing we can make model coeffiecient
 
 We we use a categorical predictor with $p$ levels, the model will estimate $p - 1$ parameters. The interpretation of these parameters is controlled by the contrast coding. In R the default is the treatment coding (or dummy coding). Essentially R create $p - 1$ dummy variables (0 and 1) where 0 is the reference level (usually the first category) and 1 is the current level. We can see the coding scheme using the `model.matrix()` function that return the $\boldsymbol{X}$ matrix:
 
-```{r}
+```{r, echo = FALSE}
 model.matrix(fit) |>
     as.data.frame() |> 
     trim_df()
@@ -941,7 +559,7 @@ With numerical predictors the idea is the same as categorical predictors. In fac
 
 GLM the $\beta_1$ is the increase in the $log(odds(\pi))$ for a unit-increase in the $x$. In the response (probability) scale, the $\beta_1$ is the multiplicative increase in the odds of $y = 1$ for a unit increase in the predictor.
 
-```{r, echo = FALSE, out.width="80%"}
+```{r, echo = FALSE, out.width="50%"}
 plot_logit | plot_invlogit
 ```
 
@@ -954,12 +572,12 @@ x_{cen} = x_i - \hat x
 $$
 
 $$
-x_{z} = \frac{x_i - \hat x}{sigma_x}
+x_{z} = \frac{x_i - \hat x}{\sigma_x}
 $$
 
 ## Binomial GLM - Numerical predictors
 
-```{r}
+```{r, echo = FALSE}
 x <- runif(100, 0, 1)
 y <- rbinom(length(x), 1, plogis(qlogis(0.01) + x * 8))
 dat <- data.frame(y, x)
@@ -1010,9 +628,13 @@ centered <- dat |>
 
 ## Binomial GLM - Divide by 4 rule
 
-The **divide by 4 rule** is a very easy but powerful way to rapidly evaluate the effect of a continous predictor on the probability. Given the non-linearity, the derivative of the logistic function (i.e., the slope) is maximal when predicts probabilities around ~0.5. In fact, $\beta_i \pi (1 - \pi)$ is maximixed when $\pi = 0.5$ turning into $\beta_i 0.25$ (i.e., dividing by 4):
+The **divide by 4 rule** is a very easy way to evaluate the effect of a continous predictor on the probability. 
 
-<!-- TODO add more details-->
+Given the non-linearity, the derivative of the logistic function (i.e., the slope) is maximal when predicts probabilities around ~0.5. 
+
+In fact, $\beta_i \pi (1 - \pi)$ is maximized when $\pi = 0.5$ turning into $\beta_i 0.25$ (i.e., dividing by 4).
+
+## Binomial GLM - Divide by 4 rule
 
 ```{r, echo = FALSE}
 x <- runif(100, 0, 10)
@@ -1076,7 +698,6 @@ Marginal effects can be considered very similar to the **divide by 4 rule**. A p
 
 ```{r}
 # calculate the derivative 
-# TODO add references
 calc_deriv <- function(b0, b1, x){
     (b1 * exp(b0 + b1 * x)) / (1 + (exp(b0 + b1 * x)))^2
 }
@@ -1122,9 +743,9 @@ confint(fit)
 
 ## Binomial GLM - Confidence intervals
 
-When calculating confidence intervals it is important to consider the link function. In the same way as we compute the inverse logit function on the parameter value, we could revert also the confidence intervals. **IMPORTANT, do not apply the inverse logit on the standard error and then compute the confidence interval**:
+When calculating confidence intervals it is important to consider the link function. In the same way as we compute the inverse logit function on the parameter value, we could revert also the confidence intervals. **IMPORTANT, do not apply the inverse logit on the standard error and then compute the confidence interval**.
 
-```{r}
+```{r, echo = FALSE}
 n <- 100
 n_watching <- n/2 # just for simplicity
 p_pass_yes <- 0.7
@@ -1143,11 +764,14 @@ dat$exam <- rbinom(n, 1, plogis(qlogis(b0) + log(b1)*dat$tv_shows))
 fit <- glm(exam ~ tv_shows, data = dat, family = binomial(link = "logit"))
 ```
 
-<!-- TODO add something about broom here -->
+```{r}
+fits <- broom::tidy(fit) # extract parameters as dataframe
+fits
+```
+
+## Binomial GLM - Confidence intervals
 
 ```{r}
-fits <- broom::tidy(fit)
-
 b <- fits$estimate[2]
 se <- fits$std.error[2]
 
@@ -1205,6 +829,8 @@ fit_max <- glm(y ~ x1 + x2 + x1:x2, data = dat, family = binomial(link = "logit"
 summary(fit_max)
 ```
 
+## Binomial GLM - Anova
+
 Then using `car::Anova()`. For each effect we have the $\chi^2$ statistics and the associated p-value. The null hypothesis is that the specific factor did not contribute in reducing the residual deviance.
 
 ```{r}
@@ -1220,20 +846,16 @@ D = 2 (log(\mathcal{L}_{full}) - log(\mathcal{L}_{reduced})) \\
 D \sim \chi^2_{df_{full} - df_{reduced}}
 \end{align*}
 
-more details
-
 ## Binomial GLM - Model comparison
 
-To better undersanding, the `x2` effect reported in the `car::Anova()` table is a model comparison between a model with `y ~ x1 + x1:x2` and a model without `y ~ x1`. The difference between these two model is the unique contribution of `x2` after controlling for `x1` and the interaction `x1:x2`:
+To better understanding, the `x2` effect reported in the `car::Anova()` table is a model comparison between a model with `y ~ x1 + x2` and a model without `x2`. The difference between these two model is the unique contribution of `x2` after controlling for `x1`:
 
 ```{r}
-fit <- glm(y ~ x1 + x1:x2, data = dat, family = binomial(link = "logit"))
+fit <- glm(y ~ x1 + x2, data = dat, family = binomial(link = "logit"))
 fit0 <- glm(y ~ x1, data = dat, family = binomial(link = "logit"))
 
-anova(fit0, fit, test = "LRT")
+anova(fit0, fit, test = "LRT") # ~ same as car::Anova(fit_max)
 ```
-
-The residual deviance and the p values are almost the same as using `car::Anova()`
 
 ## Binomial GLM - Model comparison
 
@@ -1246,6 +868,8 @@ fit3 <- glm(y ~ x1 + x2, data = dat, family = binomial(link = "logit"))
 ```
 
 `fit1` and `fit2` are non-nested because we have the same number of predictors (thus degrees of freedom). `fit3` and `fit1`/`fit2` are nested because `fit3` is more complex and removing one term we can obtain the less complex models.
+
+## Binomial GLM - Model comparison
 
 ```{r}
 anova(fit1, fit2) # do not works properly
@@ -1285,7 +909,7 @@ We will se:
 The McFadden's pseudo-$R^2$ compute the ratio between the log-likelihood of the intercept-only (i.e., null) model and the current model[@McFadden1987-qq]:
 
 $$
-R^2 = 1 - \frac{log(L_{m})}{log(L_{0})}
+R^2 = 1 - \frac{log(\mathcal{L}_{m})}{log(\mathcal{L}_{0})}
 $$
 
 There is also the adjusted version that take into account the number of parameters of the model. In R can be computed manually or using the `performance::r2_mcfadden()`:
@@ -1319,6 +943,11 @@ This measure is the easiest to interpret and calculate but can only be applied f
 R^2 = |\pi_1 - \pi_2|
 \end{align*}
 
+```{r}
+performance::r2_tjur(fit2)
+```
+
+
 # Binomial GLM - Plotting effects
 
 ## Binomial GLM - Marginal effects
@@ -1348,7 +977,7 @@ Everything can be simplified using some packages to perform each step and return
 
 In this situation we can just plot the marginal probabilities for each level of the categorical predictor. Plotting our exam dataset:
 
-```{r}
+```{r, echo = FALSE}
 n <- 100
 n_watching <- n/2 # just for simplicity
 p_pass_yes <- 0.7
@@ -1387,12 +1016,12 @@ fits |>
 
 ## Binomial GLM - 1 numerical predictor
 
-```{r}
+```{r, echo = FALSE}
 x <- runif(100, 0, 1)
 y <- rbinom(length(x), 1, plogis(qlogis(0.01) + x * 8))
 dat2 <- data.frame(y, x)
 
-fit2 <- glm(y ~ x, data = dat, family = binomial(link = "logit"))
+fit2 <- glm(y ~ x, data = dat2, family = binomial(link = "logit"))
 
 dat2 |> 
     add_predict(fit2, se.fit = TRUE) |> 
@@ -1408,29 +1037,41 @@ dat2 |>
 
 ## Binomial GLM - `allEffects()`
 
-```{r}
-par(mfrow = c(1,2))
-plot(effects::allEffects(fit))
+::: columns
+:::: column
+```{r, echo = FALSE}
 plot(effects::allEffects(fit2))
 ```
+::::
+:::: column
+```{r, echo = FALSE}
+plot(effects::allEffects(fit))
+```
+::::
+:::
 
 ## Binomial GLM - `ggeffect()`/`plot_model()`
 
-```{r}
-plot(ggeffects::ggeffect(fit)[[1]]) + plot(ggeffects::ggeffect(fit)[[1]])
+```{r, echo = FALSE}
+plot(ggeffects::ggeffect(fit)[[1]]) + plot(ggeffects::ggeffect(fit2)[[1]])
 ```
 
 ## Binomial GLM - Plotting coefficients
 
-Sometimes could be useful to plot the estimated sampling distribution of a coefficient. For example, we can plot the `tv_shows` effect on our example. I've written the `plot_param()` function that directly create a basic-plot given the model and the coefficient name. The plot highlight the null value and the 95% Wald confidence interval:
-
-```{r, eval = FALSE}
+::: columns
+:::: column
+Sometimes could be useful to plot the estimated sampling distribution of a coefficient. For example, we can plot the `tv_shows` effect on our example. I've written the `plot_param()` function that directly create a basic-plot given the model and the coefficient name. The plot highlight the null value and the 95% Wald confidence interval.
+::::
+:::: column
+```{r, eval = TRUE}
 plot_param(fit, "tv_shows1")
 ```
 
 ```{r, echo = FALSE}
-plot_param(fit, "tv_shows1")
+plot_param(fit, "tv_shows1") + mytheme()
 ```
+::::
+:::
 
 # Binomial GLM - Diagnostic
 
@@ -1442,7 +1083,6 @@ The diagnostic for GLM is similar to standard linear models. Some areas are more
   - Types of residuals
   - Residual deviance
 - Classification accuracy
-- $R^2$
 
 ## Binomial GLM - Residuals
 
@@ -1458,7 +1098,7 @@ As for standard linear models there are different types of residuals:
 
 <!-- TODO add dunn reference -->
 
-Raw residuals, also called response residuals are the simplest (and problematic) type of residuals. They are calculated as in standard regression as:
+Raw residuals, also called response residuals are the simplest type of residuals. They are calculated as in standard regression as:
 
 $$
 r_i = y_i - \hat y_i
@@ -1468,13 +1108,13 @@ In R:
 
 ```{r}
 # equivalent to residuals(fit, type = "response") 
-ri <- dat$y - fitted(fit)
+ri <- dat2$y - fitted(fit2)
 ri[1:5]
 ```
 
 The problem is that in GLMs the mean and the variance of the distribution are usually correlated, creating a problem in residual analysis.
 
-## Binomial GLM - Raw Residuals
+## Why raw residuals are problematic?
 
 This plot^[Adapted from Dunn (2018), Fig. 8.1] shows an example with the same residual for two different $x$ values on a Poisson GLM. Beyond the model itself, the same residual can be considered as extreme for low $x$ values and plausible for high $x$ values:
 
@@ -1520,6 +1160,8 @@ ggplot(data = dat, aes(x = x, y = y)) +
 
 ## Binomial GLM - Raw Residuals
 
+With binary data raw residuals usually shows a strange pattern:
+
 ```{r, echo = FALSE}
 x <- runif(100, 0, 1)
 y <- rbinom(length(x), 1, plogis(qlogis(0.01) + x * 8))
@@ -1540,8 +1182,6 @@ ggplot(res, aes(x = ri, y = yi)) +
 
 ## Binomial GLM - Binned (raw) Residuals
 
-<!-- TODO add that fitted are on the probability scale -->
-
 Gelman and colleagues [@Gelman2020-tg, @Gelman2006-pc] proposed a type of residuals called **binned residuals**. The idea is to divide values into a certain number of bins, calculate the average fitted/residual and plot the results. To calculate binned residuals we need to:
 
 - divide the fitted values into $n$ bins. The number is arbitrary but we need each bin to have enough observation to compute a reliable average
@@ -1556,17 +1196,22 @@ We can use the `performance::binned_residuals(model = , n_bins = )` function to 
 ```{r}
 bres <- performance::binned_residuals(fit, n_bins = 10) # 10 is the default
 head(data.frame(bres))
+```
+
+## Binomial GLM - Binned (raw) Residuals
+
+```{r}
 plot(bres)
 ```
+
 
 ## Binomial GLM - Pearson residuals
 
 Pearson residuals are raw residuals divided by the standard deviation of each residual. The idea is to take into account the mean-variance relationship of GLMs. When model assumptions are respected, Pearson residuals have an approximate normal distribution: For the binomial of the binomial GLM:
 
-$$
+\begin{align*}
 r_i = \frac{y_i - \hat y_i}{\sqrt{\hat p_i(1 - \hat p_i)}}
-\hat p_i = logit^{-1}(\hat y_i)
-$$
+\end{align*}
 
 ```{r}
 # equivalent to residuals(fit, type = "pearson")
@@ -1580,7 +1225,7 @@ ri_pearson[1:5]
 The standardized pearson residuals are pearson residuals standardized using the hat value of each residual. The hat values are the diagonal of the hat matrix.
 
 $$
-r_i = \frac{y_i - \hat y_i}{\sqrt{sqrt(1 - h_i)}}
+r_i = \frac{y_i - \hat y_i}{\sqrt{(1 - h_i)}}
 $$
 
 ```{r}
@@ -1616,7 +1261,7 @@ Also the **deviance residuals** tends to have a normal distribution if the model
 
 The **quantile residuals** is another proposal for residual analysis. The idea is to map the quantile of the cumulative density function (CDF) of the random component into the CDF of the normal distribution.
 
-```{r}
+```{r, echo = FALSE}
 dat <- data.frame(x = 0:30)
 dat$y <- pbinom(dat$x, 30, 0.5)
 dat$yl <- pbinom(dat$x-1, 30, 0.5)
@@ -1636,19 +1281,21 @@ qres1 <- dat |>
     geom_label(x = 25, y = pbinom(14, 30, 0.5), label = sprintf("b = %.2f", pbinom(14, 30, 0.5))) +
     geom_segment(x = 0, xend = 10, y = u, yend = u) +
     geom_segment(x = 14, xend = 14, y = 0, yend = pbinom(14, 30, 0.5)) +
-    geom_label(x = 10, y = u, label = sprintf("u = runif(1, a, b) = %.2f", u)) +
+    geom_label(x = 6, y = u, label = sprintf("u = runif(1, a, b) = %.2f", u)) +
     geom_point(x = 0, y = u, size = 3, col = "red") +
-    geom_text(x = 15, y = 0, label = "y = 14") +
+    geom_text(x = 17, y = 0, label = "y = 14") +
     xlab("y") +
     ylab("CDF") +
     mytheme()
 
-qres2 <- ggplot() +
-    xlim(c(-4,4)) +
-    stat_function(fun = pnorm) +
-    geom_segment(x = -Inf, xend = qnorm(u), y = u, yend = u) +
+temp <- data.frame(x = seq(-4,4,0.001))
+
+qres2 <- temp |> 
+    ggplot() +
+    geom_line(aes(x = x, y = pnorm(x))) +
+    geom_segment(x = -4, xend = qnorm(u), y = u, yend = u) +
     geom_segment(x = qnorm(u), xend = qnorm(u), y = 0, yend = u) +
-    geom_point(x = qnorm(u), y = u, size = 3, col = "red") +
+    geom_point(x = qnorm(u), y = u, size = 5, col = "red") +
     xlab("z") +
     ylab("CDF") +
     mytheme()
@@ -1664,6 +1311,8 @@ qres1 + qres2
 statmod::qresid(fit)[1:5]
 statmod::qresid(fit)[1:5] # different every time
 ```
+
+## Binomial GLM - Quantile residuals
 
 ```{r, echo = FALSE}
 dat <- data.frame(ri = statmod::qresid(fit))
@@ -1692,7 +1341,7 @@ The **error rate** (ER) is defined as the proportion of cases for which the dete
 
 I wrote the `error_rate` function that simply compute the error rate of a given model:
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, results='asis'}
 print_fun(funs$error_rate)
 ```
 
@@ -1708,42 +1357,43 @@ We could compare the error rate of a given model with the error rate of the null
 fit0 <- update(fit, . ~ -x) # removing the x predictor, now intercept only model
 error_rate(fit0)
 
-er_ratio = error_rate(fit0)/error_rate(fit0) # the error rate of the null model is ... greater/less than the actual model
+# the error rate of the null model is ... greater/less than the actual model
+er_ratio = error_rate(fit0)/error_rate(fit)
 ```
 
-The **error rate** of the null model is `r round(er_ratio, 3)` greater than the actual model.
+The **error rate** of the null model is `r round(er_ratio, 3)` times greater than the actual model.
 
-## Binomial GLM - ROC analysis [EXTRA]
+## Binomial GLM - ROC analysis `#extra`
 
 This prediction-based approach can be extended using the logistic regression to compute the receiver operating characteristic analysis. This is a more advanced topic but the idea is to use a binomial regression to make predictions and assess the prediction accuracy. This is commonly used in machine learning where the model is trained on a set of data trying to predict a set of new data.
 
 The ROC curve is a tool to assess the performance of a classifier model (e.g., binomial regression). The idea is to use several different threshold to create the 0/1 predictions (instead of 0.5 as in the previous slides) and find the optimal value.
 
-## Binomial GLM - ROC analysis [EXTRA]
+## Binomial GLM - ROC analysis `#extra`
 
 Let's use again the 0.5 threshold but computing all the classification metrics. We can just create a 2x2 table with model-based predictions (often called confusion matrix):
 
 ```{r}
 pi <- ifelse(predict(fit, type = "response") > 0.5, 1, 0)
-yi <- dat$y
+yi <- fit$y
 
 # confusion matrix
 table(pi, yi)
 ```
 
-## Binomial GLM - ROC analysis [EXTRA]
+## Binomial GLM - ROC analysis `#extra`
 
 There are several metrics to compute in a confusion matrix (see [here](https://en.wikipedia.org/wiki/Confusion_matrix)). To create a ROC curve we need to calculate the **True Positive Rate** (TPR, also called *sensitivity*) representing the proportion of $\hat y = 1$ when $y = 1$ using a specific threshold value and the **False Positive Rate** (FPR, also called *1 - specificity*) representing one minus the proportion of $\hat y = 1$ when $y = 0$. We could use the `classify(fit, th = )` function to compute relevant metrics from a fitted model and a given threshold:
 
 ```{r}
-classify(fit, 0.5)
+data.frame(classify(fit, 0.5))
 ```
 
-## Binomial GLM - ROC analysis [EXTRA]
+## Binomial GLM - ROC analysis `#extra`
 
 Then simply using the `classify()` function with multiple thresholds we can have two vectors of TPRs and FPRs and plotting the ROC curve. The Area Under the Curve (AUC) ranges between 0 and 1 (more realistically between 0.5 and 1). The AUC is the ability of the classifier to classify $y$ values:
 
-```{r, echo FALSE}
+```{r, echo = FALSE, out.width="70%"}
 th <- c(-Inf, seq(0, 1, 0.001), Inf)
 roc <- lapply(th, function(t) classify(fit, t))
 roc <- bind_rows(roc)
@@ -1780,7 +1430,7 @@ The **hat matrix** $H$ is calculated as $H = X \left(X^{\top} X \right)^{-1} X^{
 
 The $i^{th}$ leverage score ($h_{ii}$) is interpreted as the weighted distance between $x_i$ and the mean of $x_i$'s. In practical terms is the $i^{th}$ observed value influence the $i^{th}$ fitted value. An high leverage suggest that the observation is far from the mean of predictors and have an high influence on the fitted values.
 
-- $h_{ii} ranges between 0 and 1
+- $h_{ii}$ ranges between 0 and 1
 - The sum of all $h_{ii}$ values is the number of parameters $p$
 - As a rule of thumb, an observation have an high leverage if $h_{ii} > 2 \bar h$ where $\bar h$ is the average hatvalue
 
@@ -1838,6 +1488,10 @@ Where $i$ denote the parameters and standard error on a model fitted without the
 In R we can use the `influence.measures()` function to calculate each influence measure explained before^[The function actually computes also other influence measures, see Dunn (2018, section 8.8.3) for other details].
 
 ```{r}
+fit <- update(fit, data = fit$model[1:50, ])
+```
+
+```{r}
 infl <- influence.measures(fit)$infmat
 head(infl)
 ```
@@ -1846,16 +1500,24 @@ head(infl)
 
 I wrote the `cook_plot()` function to easily plot the cook distances along with the identification of influential observations:
 
-```{r}
+```{r, eval = FALSE}
 cook_plot(fit)
+```
+
+```{r, echo = FALSE}
+cook_plot(fit) + mytheme()
 ```
 
 ## Binomial GLM - Plotting influence measures
 
 I wrote the `dfbeta_plot()` function to easily plot the cook distances along with the identification of influential observations:
 
-```{r}
+```{r, eval = FALSE}
 dfbeta_plot(fit)
+```
+
+```{r, echo = FALSE}
+dfbeta_plot(fit) + mytheme()
 ```
 
 # Checking model assumptions
@@ -1864,7 +1526,7 @@ dfbeta_plot(fit)
 
 The **residual vs fitted** plot is very useful to identify pattern in residuals and heteroskedasticity. Let's generate some data where the true model is $y_i = \beta_0 + \beta_1x + \beta_2x^2$ and fit a model with and without the quadratic term^[Adapted from Dunn (2018, Figure 8.4)].
 
-```{r}
+```{r, echo = FALSE}
 n <- 50
 x <- seq(0, 1, 0.01)
 
@@ -1885,7 +1547,8 @@ head(dat) # the real relationship is y ~ x + x^2
 
 ```{r, eval = FALSE}
 fit_wrong <- glm(cbind(y, n - y) ~ x, data = dat, family = binomial(link = "logit"))
-fit_real <- glm(cbind(y, n - y) ~ poly(x, 2), data = dat, family = binomial(link = "logit")) # poly 2 is a shortcut for fitting a quadratic term
+# poly 2 is a shortcut for fitting a quadratic term
+fit_real <- glm(cbind(y, n - y) ~ poly(x, 2), data = dat, family = binomial(link = "logit")) 
 ```
 
 ## Residuals vs Fitted plot
@@ -1931,7 +1594,7 @@ res_y + res_y2
 
 Another useful visual method is plotting residuals against each predictor $x_j$. In this case we have only one $x$:
 
-```{r}
+```{r, echo = FALSE}
 res_x <- ggplot(res,
        aes(x = x, y = rd)) +
     geom_point() +
@@ -1962,7 +1625,7 @@ There are several practical differences between binomial and binary models:
 - data structure
 - fitting function in R
 - residuals and residual deviance
-- type of predictors [EXTRA]
+- type of predictors `#extra`
 
 ## Binomial vs Binary data structure
 
@@ -1980,6 +1643,8 @@ dat |>
     round(2) |> 
     trim_df(4)
 ```
+
+## Binomial vs Binary data structure
 
 Or equivalently with a categorical variable:
 
@@ -2010,6 +1675,8 @@ dat |>
     trim_df(4)
 ```
 
+## Binomial vs Binary data structure
+
 With a categorical variable we have essentialy a contingency table:
 
 ```{r}
@@ -2035,8 +1702,7 @@ bin_to_binary(datc, nc, nt) |>
 ```{r}
 # from binary to binomial
 bin_to_binary(datc, nc, nt)  |>
-    binary_to_bin(y, x) |> 
-    trim_df()
+    binary_to_bin(y, x)
 ```
 
 ## Binomial vs Binary: - fitting function in R
@@ -2066,14 +1732,12 @@ dat_binary <- bin_to_binary(dat_binomial, nc, nt)
 
 ```{r}
 fit_binomial <- glm(nc/nt ~ x, weights = nt, data = dat_binomial, family = binomial(link = "logit"))
-summary(fit_binomial)
 fit_binary <- glm(y ~ x, data = dat_binary, family = binomial(link = "logit"))
-summary(fit_binary)
 ```
 
 ## Binomial vs Binary: residuals and residual deviance
 
-```{r}
+```{r, echo = FALSE}
 par(mfrow = c(1,2))
 
 plot(fitted(fit_binomial), rstandard(fit_binomial, type = "deviance"),
@@ -2102,19 +1766,29 @@ The residual deviance is also different. In fact, there is more residual devianc
 ```{r}
 fit0_binary <- update(fit_binary, . ~ -x) # null binary model
 fit0_binomial <- update(fit_binomial, . ~ -x) # null binary model
-
-anova(fit_binary, fit0_binary, test = "Chisq")
-anova(fit_binomial, fit0_binomial, test = "Chisq")
 ```
 
-## Binomial vs Binary: type of predictors [EXTRA]
+::: columns
+:::: column
+```{r}
+anova(fit_binomial, fit0_binomial, test = "Chisq")
+```
+::::
+:::: column
+```{r}
+anova(fit_binary, fit0_binary, test = "Chisq")
+```
+::::
+:::
+
+## Binomial vs Binary: type of predictors `#extra`
 
 This point is less relevant in this course but important in general. Usually, **binary regression** is used when the predictor is at the *trial level* whereas **binomial regression** is used when the predictor is at the *participant level*. When both levels are of interests one should use a mixed-effects model where both levels can be modelled.
 
 - the probability of correct responses during an exam as a function of the question difficulty
 - he probability of passing the exam as a function of the high-school background
 
-## Binomial vs Binary: type of predictors [EXTRA]
+## Binomial vs Binary: type of predictors `#extra`
 
 > The probability of correct responses during an exam as a function of the question difficulty
 
@@ -2131,13 +1805,13 @@ dat |>
     trim_df()
 ```
 
-## Binomial vs Binary: type of predictors [EXTRA]
+## Binomial vs Binary: type of predictors `#extra`
 
 > the probability of passing the exam as a function of the high-school background
 
 - each "background" has different students that passed or not the exam (0/1)
 
-```{r}
+```{r, echo = FALSE}
 dat <- data.frame(background = c("math", "chemistry", "art", "sport"))
 nt <- c(30, 20, 10, 20)
 dat$nc <- rbinom(nrow(dat), nt, 0.7)
@@ -2150,13 +1824,13 @@ dat |>
 
 Or the binary version:
 
-```{r}
+```{r, echo = FALSE}
 dat |> 
     bin_to_binary(nc, nt) |>
     trim_df()
 ```
 
-## Binomial vs Binary: type of predictors [EXTRA]
+## Binomial vs Binary: type of predictors `#extra`
 
 - To note that despite we can convert between the binary/binomial, the two models are not always the same. The *high-school background example* can be easily modelled either with a binary or binomial model because the predictor is at the participant level that coincides with the trial level.
 - On the other side, the *question difficulty example* can only be modelled using a binary regression because each trial (0/1) has a different value for the predictor
@@ -2168,6 +1842,8 @@ dat |>
 
 - The mostly used *link function* when using a binomial GLM is the **logit link**. The **probit** link is another *link function* that can be used. The overall approach is the same between **logit** and **probit** models. The only difference is the parameter interpretation (i.e., no odds ratios) and the specific link function (and the inverse) to use.
 - The **probit** model use the **cumulative normal distribution** but the actual difference with a **logit** functions is neglegible.
+
+## Binomial GLM - Probit link
 
 ```{r, echo=FALSE}
 ggplot() +
@@ -2228,7 +1904,8 @@ probit_cum <- ggplot() +
     geom_point(aes(x = c(-4, -4)),
                y = c(p1, p2),
                color = c("red", "blue"),
-               size = 5)
+               size = 5) +
+    theme(aspect.ratio = 1)
 
 probit_denp1 <- ggplot() +
     stat_function(fun = dnorm) +
@@ -2236,7 +1913,7 @@ probit_denp1 <- ggplot() +
     mytheme() +
     ylab("Density") +
     geom_point(aes(x = qnorm(p1),
-               y = c(0)),
+                   y = c(0)),
                color = c("red"),
                size = 5) +
     geom_point(aes(x = qnorm(p1),
@@ -2275,11 +1952,17 @@ probit_denp2 <- ggplot() +
 probit_cum + (probit_denp1/probit_denp2)
 ```
 
-## Binomial GLM - Probit link and SDT [EXTRA]
+## Binomial GLM - Probit link and SDT `#extra`
 
-One useful reason to use the **probit** link is when estimating ***Signal Detection*** parameters with a GLM approach [@DeCarlo1998-ay]. The Signal Detection theory is a statistical approach to evaluate the ability of subject to discriminate between signal and noise. In psychology, is used in cognitive-perceptual tasks and psychophysics to understand how well a participant is able to detect the presence of a stimulus or sound.
+One useful reason to use the **probit** link is when estimating ***Signal Detection*** parameters with a GLM approach [@DeCarlo1998-ay]. 
 
-```{r}
+The Signal Detection theory is a statistical approach to evaluate the ability of subject to discriminate between signal and noise. 
+
+In psychology, is used in cognitive-perceptual tasks and psychophysics to understand how well a participant is able to detect the presence of a stimulus or sound.
+
+## Binomial GLM - Probit link and SDT `#extra`
+
+```{r, echo = FALSE}
 d <- 1.5
 
 ggplot() +
@@ -2324,7 +2007,7 @@ ggplot() +
     ylab("Density")
 ```
 
-## Binomial GLM - Probit link and SDT [EXTRA]
+## Binomial GLM - Probit link and SDT `#extra`
 
 The two main parameters for a signal detection analysis are the d$'$ and the **criterion**. The d$'$ is the ability to discriminate between signal and noise (the distance between the two distributions of the previous slide) and the criterion is the tendency to say *yes* (liberal) or *no* (conservative) of the subject. The core of the SDT analysis is separately estimating the d$'$ and the **criterion** thus the ability to discriminate regardless the actual decision strategy.
 
@@ -2338,7 +2021,7 @@ $$
 
 Where **HIT** is the **sensitivity** defined for the ROC analysis (*say signal present when the signal is actually present*) and the **FA** (*false alarms*) is 1 - **specificity** defined for the ROC analysis (*say signal present when the signal is actually absent*).
 
-## Binomial GLM - Probit link and Signal Detection Analysis [EXTRA]
+## Binomial GLM - Probit link and Signal Detection Analysis `#extra`
 
 The signal detection formalize the problem as a system (e.g., a person) that take a decision based on a noisy signal. Each decision, the evidence (i.e., the signal) is compared to an internal criterion. If the perceived signal exceed the criterion, the person say **yes** otherwise **no**.
 
@@ -2346,7 +2029,7 @@ The signal detection formalize the problem as a system (e.g., a person) that tak
 - the noise distribution is $Noise \sim \mathcal{N}(0, 1)$
 - the optimal criterion is the midpoint between signal and noise $\frac{d'}{2}$ but a person could choose a different criterion (e.g., *conservative* or *liberal*)
 
-## Binomial GLM - Probit link and Signal Detection Analysis [EXTRA]
+## Binomial GLM - Probit link and Signal Detection Analysis `#extra`
 
 Example: A group of clinicians need to guess the presence of learning disorders by observing a class of children during a day. Within the class 50% have learning disorders and 50% have no diagnosis.
 
@@ -2368,7 +2051,7 @@ sdt$has_disorder <- factor(sdt$has_disorder)
 head(sdt)
 ```
 
-## Binomial GLM - Probit link and SDT [EXTRA]
+## Binomial GLM - Probit link and SDT `#extra`
 
 ```{r}
 sdt$sdt <- dplyr::case_when(
@@ -2384,7 +2067,7 @@ hr <- sdt_tab["hit"] / (sdt_tab["hit"] + sdt_tab["miss"])
 far <- sdt_tab["fa"] / (sdt_tab["fa"] + sdt_tab["cr"])
 ```
 
-## Binomial GLM - Probit link and SDT [EXTRA]
+## Binomial GLM - Probit link and SDT `#extra`
 
 We could manually calculate the d$'$ and criterion:
 
@@ -2394,6 +2077,8 @@ qnorm(hr) - qnorm(far)
 # criterion, negative = tendency to say yes
 -((qnorm(hr) + qnorm(far))/2)
 ```
+
+## Binomial GLM - Probit link and SDT `#extra`
 
 Or fitting a GLM with a **probit** link predicting the response by the reality:
 
@@ -2410,3 +2095,5 @@ fit <- glm(say_disorder ~ has_disorder,
 # the slipe is the dprime
 coef(fit)[2]
 ```
+
+## References

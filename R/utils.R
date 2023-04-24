@@ -1,20 +1,26 @@
-# add prediction to a dataframe
+# this is a wrapper of the predict function
+# add prediction to a dataframe given a model
+# extra arguments to predict are passed using ...
+# it works well with pipes %>% or |>
+
 add_predict <- function(data, fit, ...){
     pr <- predict(fit, newdata = data, ...)
     tibble::tibble(cbind(data, data.frame(pr)))
 }
 
 # print model equation with generic or actual values
-# thanks to https://stats.stackexchange.com/a/433060
+# thanks to https://stats.stackexchange.com/a/433060 for the
+# equation part. I've added the printing and prediction
+
 model_equation <- function(model, values = NULL, ..., only_print = FALSE) {
     format_args <- list(...)
     model_coeff <- model$coefficients
     model_coeff <- round(model_coeff, 3)
     format_args$x <- abs(model_coeff)
     model_coeff_sign <- sign(model_coeff)
-    model_coeff_prefix <- case_when(model_coeff_sign == -1 ~ " - ",
-                                    model_coeff_sign == 1 ~ " + ",
-                                    model_coeff_sign == 0 ~ " + ")
+    model_coeff_prefix <- dplyr::case_when(model_coeff_sign == -1 ~ " - ",
+                                           model_coeff_sign == 1 ~ " + ",
+                                           model_coeff_sign == 0 ~ " + ")
     nms <- names(model_coeff[-1])
     # check if there are values to print
     if(!is.null(values)){
@@ -32,9 +38,9 @@ model_equation <- function(model, values = NULL, ..., only_print = FALSE) {
     
     
     y <- strsplit(as.character(model$call$formula), "~")[[2]]
-    b0 <- paste0(ifelse(model_coeff[1] < 0, "-", ""), do.call(format, format_args)[1])
+    b0 <- paste0(ifelse(model_coeff[1] < 0, "-", ""), do.call(base::format, format_args)[1])
     bs <- paste0(model_coeff_prefix[-1],
-                 do.call(format, format_args)[-1],
+                 do.call(base::format, format_args)[-1],
                  "*",
                  cli::col_blue(nms),
                  sep = "", collapse = "")
@@ -46,36 +52,47 @@ model_equation <- function(model, values = NULL, ..., only_print = FALSE) {
     }
 }
 
-# predict values and print model equation
+# improved predict function, it works as the standard predict
+# function but prints the model equation that is supporting
+# the current prediction
+
 epredict <- function(fit, values, ...){
     message(model_equation(fit, values, only_print = TRUE))
     pr <- predict(fit, values, ...)
     as.numeric(sapply(pr, unname))
 }
 
-lgt <- function(letter){
-    sprintf("$log(\\frac{%s}{1 - %s})$", letter, letter)
-}
-
-invlgt <- function(letter){
-    sprintf("$\\frac{e^{%s}}{1 + e^{%s}}$", letter, letter)
-}
-
+# computes the odds of a probability
 odds <- function(p){
     p / (1 - p)
 }
 
+# computes the odds ratio of two probabilities
+# pn is the numerator and pd is the denominator
 odds_ratio <- function(pn, pd){
     odds(pn) / odds(pd)
 }
 
-plot_param <- function(fit, b){
-    fits <- broom::tidy(fit, conf.int = TRUE)
+# plotting a parameter sampling distribution with different confidence
+# intervals. b = parameter name from model summary
+plot_param <- function(fit, b, ci = c("wald", "z", "profile"), level = 0.95){
+    ci <- match.arg(ci)
+    fits <- broom::tidy(fit, conf.int = TRUE, conf.level = level)
     fits <- fits[fits$term == b, ]
-    ci <- c(fits$estimate - fits$std.error * abs(qnorm(0.025)),
-            fits$estimate + fits$std.error * abs(qnorm(0.025)))
     m <- fits$estimate[1]
     se <- fits$std.error[1]
+    
+    if(ci == "z"){
+        qs <- (1 - level)/2
+        qs <- c(0 + qs, 1 - qs)
+        ci <- m + se * qnorm(qs)
+    }else if(ci == "wald"){
+        ci <- c(fits$conf.low, fits$conf.high)
+    }else{
+        prf <- suppressMessages(data.frame(confint(fit, level = level))[b, ])
+        ci <- c(prf[, 1], prf[, 2])
+    }
+    
     title <- sprintf("Sampling distribution of $\\beta$ [%s]", b)
     out <- ggnorm(m, se) +
         stat_function(fun = dnorm,
@@ -96,12 +113,16 @@ plot_param <- function(fit, b){
     }
 }
 
-ggnorm <- function(mean, sd){
+# quick way to plot a normal distribution with ggplot
+# can be considered a wrapper of dnorm(x) that automatically
+# adapt the axis limits
+
+ggnorm <- function(mean = 0, sd = 1){
     range <- c(mean - sd*5, mean + sd*5)
-    ggplot(data = data.frame(x = range)) +
-        stat_function(fun = dnorm, args = list(mean = mean, sd = sd)) +
-        ylab("Density") +
-        xlim(range)
+    ggplot2::ggplot(data = data.frame(x = range)) +
+        ggplot2::stat_function(fun = dnorm, args = list(mean = mean, sd = sd)) +
+        ggplot2::ylab("Density") +
+        ggplot2::xlim(range)
 }
 
 # convert xtable to df (tibble)
@@ -120,6 +141,8 @@ pn_from_or <- function(pd, or){
     (or * pd) / (pd * (or - 1) + 1)
 }
 
+# compute the difference between two
+# probabilities and the confidence interval
 pdiff <- function(p1, p2, n1, n2 = NULL){
     if(is.null(n2)){
         n2 <- n1 
@@ -131,6 +154,9 @@ pdiff <- function(p1, p2, n1, n2 = NULL){
                 pd, se, ci[1], ci[2]))
 }
 
+# binomial dataset to binary dataset given
+# the number of correct (nc) and total trials (nt)
+# the columns can be provided unquoted
 bin_to_binary <- function(data, nc, nt){
     nt <- substitute(nt)
     nc <- substitute(nc)
@@ -145,15 +171,26 @@ bin_to_binary <- function(data, nc, nt){
     tibble::tibble(drep[, c("y", names(data))])
 }
 
+# binary dataset to binomial dataset
+# the y variable is the 0/1 and ...
+# are the varibles to group by and compute
+# the total
+
 binary_to_bin <- function(data, y, ...){
     y <- rlang::enexpr(y)
     dots <- rlang::enexprs(...)
     data |> 
-        group_by(!!!dots) |> 
-        summarise(nc = sum(!!y),
-                  nf = n() - nc,
-                  nt = n())
+        dplyr::group_by(!!!dots) |> 
+        dplyr::summarise(nc = sum(!!y),
+                         nf = n() - nc,
+                         nt = n())
 }
+
+# plotting dfbeta with cutoffs given a model a eventually
+# a vector of parameters
+# onlyout = TRUE plot only the parameters with outliers
+# cutoff if not specified is taken as 1/sqrt(n) where
+# n is the number of observations
 
 dfbeta_plot <- function(fit, 
                         params = NULL, 
@@ -184,21 +221,27 @@ dfbeta_plot <- function(fit,
         dfb <- dfb[dfb$variable %in% sel, ]
     }
     
-    ggplot() +
-        geom_vline(xintercept = c(-cutoff, cutoff),
-                   linetype = "dashed") +
-        geom_segment(data = dfb,
-                     aes(x = 0, xend = value, y = id, yend = id)) +
-        geom_point(data = dfb[!dfb$out, ],
-                   aes(x = value, y = id),
-                   color = "blue") +
-        geom_label(data = dfb[dfb$out, ],
-                   fill = "white",
-                   aes(x = value, y = id, label = id)) +
-        facet_wrap(~variable) +
-        xlab("DFBETAs") +
-        ylab("Observations")
+    ggplot2::ggplot() +
+        ggplot2::geom_vline(xintercept = c(-cutoff, cutoff),
+                            linetype = "dashed") +
+        ggplot2::geom_segment(data = dfb,
+                              aes(x = 0, xend = value, y = id, yend = id)) +
+        ggplot2::geom_point(data = dfb[!dfb$out, ],
+                            aes(x = value, y = id),
+                            color = "blue") +
+        ggplot2::geom_label(data = dfb[dfb$out, ],
+                            fill = "white",
+                            aes(x = value, y = id, label = id)) +
+        ggplot2::facet_wrap(~variable, scales = "free") +
+        ggplot2::xlab("DFBETAs") +
+        ggplot2::ylab("Observations")
 }
+
+# plotting cook distances with cutoff given a model a eventually
+# a vector of parameters
+# onlyout = TRUE plot only the parameters with outliers
+# cutoff if not specified is taken as 1/sqrt(n) where
+# n is the number of observations
 
 cook_plot <- function(fit, cutoff = NULL){
     n <- nrow(fit$data)
@@ -224,11 +267,14 @@ cook_plot <- function(fit, cutoff = NULL){
         xlab("Cook Distances")
 }
 
+# just a wrapper of stats::influence.measures()
+# returning the dataframe of influence measures
+
 infl_measure <- function(fit){
-    data.frame(influence.measures(fit)$infmat)
+    data.frame(stats::influence.measures(fit)$infmat)
 }
 
-
+# return the error rate of a glm binary model
 error_rate <- function(fit){
     pi <- predict(fit, type = "response")
     yi <- fit$y
@@ -236,31 +282,16 @@ error_rate <- function(fit){
     1 - cr # error rate
 }
 
-# sim_design <- function(ns, contrasts = contr.treatment, ...){
-#     dots <- list(...)
-#     dots_e <- rlang::enexprs(...)
-#     nx <- sapply(dots, length)
-#     if(length(dots) > 0){
-#         if(length(dots[nx != ns]) > 0){
-#             data <- tidyr::expand_grid(id = 1:ns, !!!dots_e[nx != ns])
-#         }
-#         if(length(dots[nx == ns]) > 0){
-#             data <- cbind(data, data.frame(dots[nx == ns]))
-#         }
-#         data$id <- 1:nrow(data)
-#         data <- dplyr::select(data, id, everything())
-#         data <- set_contrasts(data, contrasts)
-#     }else{
-#         data <- tibble::tibble(id = 1:ns)
-#     }
-# }
-
+# create a dataframe for simulating data
+# ns = number of observation
+#   - for numeric variables (nx) the ns is the total number of values
+#   - for categorical variables (cx) is the number of observations per cell
+# nx = named list() of numerical predictors
+# cx = named list() of categorical predictors
+# contrast = which contrast to apply to categorical variables, default
+# to contr.treatement
+ 
 sim_design <- function(ns, nx = NULL, cx = NULL, contrasts = contr.treatment){
-    # if(!is.list(cx)){
-    #     cxn <- deparse(substitute(cx))
-    #     cx <- list(cx)
-    #     names(cx) <- cxn
-    # }
     data <- data.frame(id = 1:ns)
     if(!is.null(cx)){
         data <- tidyr::expand_grid(data, !!!cx)
@@ -279,6 +310,10 @@ sim_design <- function(ns, nx = NULL, cx = NULL, contrasts = contr.treatment){
     return(data)
 }
 
+# simulate data using the linpred expression and either a binomial
+# or poisson model.
+# linpred = expression that will be evaluated within the data object
+# model = if using rbinom or poisson
 sim_data <- function(data, linpred, model = c("binomial", "poisson")){
     model <- match.arg(model)
     linpred <- rlang::enexpr(linpred)
@@ -291,12 +326,8 @@ sim_data <- function(data, linpred, model = c("binomial", "poisson")){
     return(data)
 }
 
-# sim_data <- function(data, linpred){
-#     linpred <- rlang::enexpr(linpred)
-#     data$lp <- with(data, eval(linpred))
-#     data$y <- rbinom(nrow(data), 1, plogis(data$lp))
-#     return(data)
-# }
+# compute confusion matrix statistics from a fitted
+# binomial model
 
 classify <- function(fit, th){
     pi <- predict(fit, type = "response")
@@ -320,6 +351,8 @@ classify <- function(fit, th){
          fpr = fpr)
 }
 
+# apply the contrast function f (e.g., contr.treatment) to each
+# categorical variable of a dataframe
 set_contrasts <- function(data, f){
     setcon <- function(col, f){
         if(is.character(col)){
@@ -331,22 +364,28 @@ set_contrasts <- function(data, f){
         return(col)
     }
     dplyr::bind_cols(lapply(data, setcon, f))
-    # cols <- rlang::enexprs(...)
-    # datan <- dplyr::select(data, !!!cols)
-    # datan <- cbind(select(data, -c(!!!cols)), datan)
-    # datan[, names(data)]
 }
 
+# wrapper of contr.sum for setting sum to 0 contrast
+# as -0.5 0.5 instead of -1 1
 contr.sum2 <- function(n){
     contr.sum(n)/n
 }
 
+# internal function to extract the underlying
+# numerical variable from a factor with contrasts
 .num_from_contrast <- function(data){
     fct <- data[, sapply(data, is.factor)]
     fct_num <- lapply(fct, function(col) contrasts(col)[col])
     names(fct_num) <- paste0(names(fct_num), "_c")
     cbind(data, fct_num)
 }
+
+# generate counts data given the mean (mu) and the desired
+# mean-variance ratio (vmr). If vmr = 1 data will be generated
+# from a poisson distribution (mean = var = lambda) otherwise data 
+# are generated from a negative binomial distribution
+# an useful message is printed along returning the vector of values
 
 rnb <- function(n, mu, vmr){
     if(vmr == 1){
@@ -360,6 +399,6 @@ rnb <- function(n, mu, vmr){
         phi <- -(mu^2/(mu - v))
         msg <- sprintf("y ~ NegBin(mu = %2.f, phi = %.2f), var = %.2f, vmr = %.2f", mu, phi, v, vmr)
         message(msg)
-        rnegbin(n, mu, phi)
+        MASS::rnegbin(n, mu, phi)
     }
 }

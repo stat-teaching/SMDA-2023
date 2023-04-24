@@ -1,0 +1,422 @@
+---
+title: "Introduction to Generalized Linear Models"
+author: "Filippo Gambarota"
+date: "2022/2023"
+institute: "University of Padova"
+bibliography: "https://raw.githubusercontent.com/filippogambarota/bib-database/main/references.bib"
+csl: "https://raw.githubusercontent.com/citation-style-language/styles/master/ieee.csl"
+link-citations: true
+output: 
+    beamer_presentation:
+        latex_engine: xelatex
+        theme: "SimpleDarkBlue"
+        includes:
+            in_header: !expr here::here('template', 'slides', 'preamble.tex')
+            after_body: !expr here::here('template', 'slides', 'after-body.tex')
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      eval = TRUE,
+                      size = "tiny",
+                      message = FALSE,
+                      warning = FALSE,
+                      fig.align = "center",
+                      out.width = "80%")
+
+def.chunk.hook  <- knitr::knit_hooks$get("chunk")
+knitr::knit_hooks$set(chunk = function(x, options) {
+  x <- def.chunk.hook(x, options)
+  ifelse(options$size != "normalsize", paste0("\n \\", options$size,"\n\n", x, "\n\n \\normalsize"), x)
+})
+```
+
+```{r packages, include=FALSE}
+devtools::load_all()
+library(tidyverse)
+library(kableExtra)
+library(patchwork)
+library(here)
+```
+
+```{r functions, include = FALSE}
+funs <- get_funs(here("R", "utils.R"))
+```
+
+## Outline
+
+<!-- \tableofcontents[hideallsubsections] -->
+\scriptsize
+\tableofcontents
+
+# Beyond the Gaussian distribution
+
+## Quick recap about Gaussian distribution
+
+$$
+f(x) = \frac{1}{\sigma\sqrt{2\pi}} e^{-\frac{1}{2}(\frac{x - \mu}{\sigma})^2}
+$$
+
+Were $\mu$ is the **mean** and $\sigma$ is the **standard deviation**
+
+## Quick recap about Gaussian distribution
+
+```{r, echo = FALSE}
+ggnorm(0, 1) + 
+    mytheme() +
+    ggtitle(latex2exp::TeX("$\\mu = 0$, $\\sigma = 1$"))
+```
+
+\begin{center}
+But not always gaussian-like variables!
+\end{center}
+
+## Reaction times
+
+Measuring reaction times during a cognitive task. Non-negative and proably skewed data.
+
+```{r, echo = FALSE}
+dat <- data.frame(
+    x = rgamma(1e5, 9, scale = 0.5)*100
+) 
+
+dat |> 
+    ggplot(aes(x = x)) +
+    geom_histogram(fill = "lightblue",
+                   color = "black") +
+    xlab("Reaction Times (ms)") +
+    ylab("Count") +
+    mytheme()
+```
+
+## Binary outcomes
+
+Counting the number of people passing the exam out of the total. Discrete and non-negative. A series of binary (i.e., *bernoulli*) experiments.
+
+```{r, echo = FALSE}
+dat <- data.frame(x = rbinom(1e5, 10, 0.7))
+
+dat |> 
+    ggplot(aes(x = factor(x))) +
+    geom_bar(fill = "lightblue",
+             color = "black") +
+    xlab("Number of success out of 10 trials") +
+    ylab("Count") +
+    mytheme()
+```
+
+## Binary outcomes
+
+```{r, echo = FALSE}
+dat <- data.frame(y = c(70, 30), x = c("Passed", "Failed"))
+
+dat |> 
+    ggplot(aes(x = x, y = y)) +
+    geom_col(color = "black",
+             fill = "lightblue") +
+    ylab("Count") +
+    mytheme() +
+    theme(axis.title.x = element_blank()) +
+    ggtitle("Statistics Final Exam (n = 100)")
+```
+
+## Counts
+
+Counting the number of new patients per week. Discrete and non-negative values.
+
+```{r, echo = FALSE}
+dat <- data.frame(x = rpois(1e5, 15))
+
+dat |> 
+    ggplot(aes(x = x)) +
+    geom_histogram(binwidth = 2,
+                   color = "black",
+                   fill = "lightblue") +
+    xlab("Number of new patients per week") +
+    ylab("Count") +
+    mytheme()
+```
+
+## Should we use a linear model for these variables?
+
+```{r, echo = FALSE}
+# y = number of exercises solved in 1 semester
+# x = percentage of attended lectures
+
+n <- 30
+x <- rep(0:10, each = n)
+b0 <- 0.01
+b1 <- 0.8
+y <- rbinom(length(x), 1, plogis(qlogis(b0) + b1*x))
+
+dat <- data.frame(x, y)
+
+dat |> 
+    ggplot(aes(x = x, y = y)) +
+    geom_hline(yintercept = 0, linetype = "dashed", col = "red") +
+    geom_point(size = 3,
+               alpha = 0.5,
+               position = position_jitter(height = 0.03)) +
+    geom_smooth(method = "lm", 
+                se = F) +
+    mytheme() +
+    scale_x_continuous(breaks = 0:10) +
+    xlab("Questions difficulty") +
+    ylab("Probability of passing the exam")
+```
+
+## Should we use a linear model for these variables?
+
+```{r, echo = FALSE}
+# y = number of exercises solved in 1 semester
+# x = percentage of attended lectures
+
+n <- 30
+x <- runif(n, 0, 1)
+b0 <- 0
+b1 <- 4
+y <- rpois(n, exp(b0 + b1*x))
+
+dat <- data.frame(x, y)
+
+dat |> 
+    ggplot(aes(x = x*100, y = y)) +
+    geom_hline(yintercept = 0, linetype = "dashed", col = "red") +
+    geom_point(size = 3) +
+    geom_smooth(method = "lm", 
+                se = F) +
+    mytheme() +
+    xlab("Percetage of attended lectures") +
+    ylab("Solved exercises")
+```
+
+## Should we use a linear model for these variables?
+
+```{r, echo = FALSE}
+fit <- lm(y ~ x, data = dat)
+
+dfit <- data.frame(
+    fitted = fitted(fit),
+    residuals = residuals(fit)
+)
+
+qqn <- dfit |> 
+    ggplot(aes(sample = residuals)) + 
+    stat_qq() + 
+    stat_qq_line() +
+    xlab("Theoretical Quantiles") +
+    ylab("Residuals") +
+    mytheme()
+
+res_fit <- dfit |> 
+    ggplot(aes(x = fitted, y = residuals)) +
+    geom_point() +
+    mytheme() +
+    ylab("Residuals") +
+    xlab("Fitted")
+qqn + res_fit
+```
+
+## A new class of models
+
+- We need that our model take into account the **features of our response variable**
+- We need a model that, **with appropriate transformation**, keep **properties of standard linear models**
+- We need a model that is **closer to the true data generation process**
+
+\begin{center}
+Let's switch to Generalized Linear Models!
+\end{center}
+
+# Generalized Linear Models
+
+## Main references
+
+For a detailed introduction about GLMs
+
+- Chapters: 1 (intro), 4 (GLM fitting), 5 (GLM for binary data)
+
+```{r, echo = FALSE, out.width="50%"}
+knitr::include_graphics("img/agresti2015-foundations-lm-glm.jpg")
+```
+
+## Main references
+
+For a basic and well written introduction about GLM, especially the Binomial GLM
+
+- Chapters: 3 (intro GLMs), 4-5 (Binomial Logistic Regression)
+
+```{r, echo = FALSE, out.width="50%"}
+knitr::include_graphics("img/agresti2019-intro-to-categorical.jpg")
+```
+
+## Main references
+
+Great resource for interpreting Binomial GLM parameters:
+
+- Chapters: 13-14 (Binomial Logistic GLM), 15 (Poisson and others GLMs)
+```{r, echo = FALSE, out.width="50%"}
+knitr::include_graphics("img/gelman2020-reg-and-other-stories.jpg")
+```
+
+## Main references
+
+Detailed GLMs book. Very useful especially for the diagnostic part:
+
+- Chapters: 8 (intro), 9 (Binomial GLM), 10 (Poisson GLM and overdispersion)
+
+```{r, echo = FALSE, out.width="50%"}
+knitr::include_graphics("img/dunn2018-glm.jpg")
+```
+
+## General idea
+
+- models that assume distributions other than the normal distributions
+- models that considers non-linear relationships
+
+<!-- TODO add something else -->
+
+## Recipe for a GLM
+
+- **Random Component**
+- **Systematic Component**
+- **Link Function**
+
+## Random Component
+
+The **random component** of a GLM identify the response variable $Y$ and the appropriate probability distribution. For example for a numerical and continous variable we could use a Normal distribution (i.e., a standard linear model). For a discrete variable representing counts of events we could use a Poisson distribution.
+
+## Systematic Component
+
+The **systematic component** or *linear predictor* of a GLM is the combination of explanatory variables i.e. $\beta_0 + \beta_1x_1 + ... + \beta_px_p$.
+
+## Link Function
+
+The **link function** $g(\mu)$ is the function that connects the expected value (i.e., the mean $\mu$) of the probability distribution (i.e., the random component) with the *linear combination* of predictors $g(\mu) = \beta_0 + \beta_1x_1 + ... + \beta_px_p$
+
+The simplest **link function** is the **identity link** where $g(\mu) = \mu$ and correspond to the classic linear model. In fact, the linear regression is just a GLM with a **Gaussian random component** and the **identity** link function.
+
+There are multiple **random components** and **link functions** for example with a 0/1 binary variable the usual choice is using a **Binomial** random component and the **logit** link function.
+
+# Relevant distributions
+
+## Binomial distribution
+
+The probability of having $k$ success (e.g., 0, 1, 2, etc.) out of $n$ trials with a probability of success $p$ is:
+
+$$
+f(n, k, p) = Pr(X = k) = \binom{n}{k} p^k(1 - p)^{n - k}
+$$
+
+The $np$ is the mean of the binomial distribution and $np(1 - p)$ is the variance.
+
+## Bernoulli distribution
+
+The **binomial** distribution is just a repetition of $k$ **Bernoulli** trials. A single Bernoulli trial is:
+
+\begin{align*}
+f(x, p) = p^x (1 - p)^{1 - x} \\
+x \in \{0, 1\}
+\end{align*}
+
+The mean is $p$ and the variance is $p(1 - p)$
+
+## Bernoulli and Binomial
+
+The simplest situation for a Bernoulli trial is a coin flip. In R:
+
+::: columns
+:::: column
+
+```{r}
+n <- 1
+p <- 0.7
+rbinom(1, n, p) # a single bernoulli trial
+
+n <- 10
+rbinom(1, 10, p) # n bernoulli trials
+```
+
+::::
+:::: column
+```{r, echo = FALSE, out.width="90%"}
+n <- 30
+p <- 0.7
+dat <- data.frame(k = 0:n)
+dat$y <- dbinom(dat$k, n, p)
+
+dat |> 
+    ggplot(aes(x = k, y = y)) +
+    geom_point() +
+    geom_segment(aes(x = k, xend = k, y = 0, yend = y)) +
+    mytheme() +
+    ylab("dbinom(x, n, p)") +
+    ggtitle(latex2exp::TeX("$n = 30$, $p = 0.7$"))
+
+```
+::::
+:::
+
+## Poisson distribution
+
+The number of events $k$ during a fixed time interval (e.g., number of new user on a website in 1 week) is:
+
+\begin{align*}
+f(j,\lambda) = Pr(X = k) = \frac{\lambda^k e^{-\lambda}}{k!}
+\end{align*}
+
+## Poisson distribution
+
+```{r, echo = FALSE}
+lambda <- 10
+dat <- data.frame(x = 0:100)
+dat$y <- dpois(dat$x, lambda)
+
+dat |> 
+    filter(x < 30) |> 
+    ggplot(aes(x = x, y = y)) +
+    geom_line() +
+    geom_point(size = 4, shape = 21, stroke = 3, color = "white",
+               fill = "black") +
+    mytheme() +
+    ylab(latex2exp::TeX("dpois(x, $\\lambda$)")) +
+    ggtitle(latex2exp::TeX("$\\lambda = 10$"))
+```
+
+The mean and also the variance is $\lambda$.
+
+# Data simulation `#extra`
+
+## Data simulation `#extra`
+
+- During the course we will try to simulate some data. Simulating data is an amazing education tool to understand a statistical model.
+- By simulating from a **generative model** we are doing **Monte Carlo Simulations** [@Gentle2009-cj]
+
+## Data simulation `#extra`
+
+::: columns
+
+:::: column
+```{r, size = "tiny"}
+n <- 1e5 # number of experiments
+nt <- 100 # number of subjects
+p <- 0.7 # probability of success
+nc <- rbinom(n, nt, p)
+```
+
+```{r, echo = FALSE}
+hist(nc/nt)
+```
+::::
+
+:::: column
+```{r, size = "tiny"}
+n <- 1e5 # number of subjects
+lambda <- 30 # mean/variance
+y <- rpois(n, lambda)
+```
+
+```{r, echo = FALSE}
+hist(y)
+```
+::::
+:::

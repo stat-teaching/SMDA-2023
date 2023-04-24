@@ -9,7 +9,6 @@ csl: "https://raw.githubusercontent.com/citation-style-language/styles/master/ie
 link-citations: true
 output: 
     beamer_presentation:
-        keep_tex: true
         latex_engine: xelatex
         theme: "SimpleDarkBlue"
         includes:
