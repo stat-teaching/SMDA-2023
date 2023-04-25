@@ -30,11 +30,11 @@ create_index <- function(){
                          pattern = ".Rmd|.pdf",
                          recursive = TRUE, 
                          full.names = TRUE)
-    slides <- slides[!grepl("_files", slides)]
-    
+    slides <- slides[!grepl("_files|deprecated", slides)]
     name <- unique(tools::file_path_sans_ext(basename(slides)))
     rmd <- slides[grepl(".Rmd", slides)]
     pdf <- slides[grepl(".pdf", slides)]
+    name <- gsub("_", " ", name)
     sprintf("- **%s**: [Rmd](%s), [PDF](%s)", name, rmd, pdf)
 }
 

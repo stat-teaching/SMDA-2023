@@ -13,6 +13,7 @@ knitr::opts_chunk$set(
 )
 
 devtools::load_all()
+lectures <- readRDS("objects/lectures.rds")
 ```
 
 # Statistical Methods And Data Analysis In Developmental Psychology
@@ -21,6 +22,13 @@ devtools::load_all()
 <!-- badges: end -->
 
 Material for the course "Statistical Methods And Data Analysis In Developmental Psychology" at the University of Padova.
+
+# Lectures
+
+```{r, echo = FALSE}
+lectures |> 
+    kableExtra::kable()
+```
 
 # Contents
 

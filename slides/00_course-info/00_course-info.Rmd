@@ -57,6 +57,10 @@ The slides will be structured intermixing:
 
 - slides with the `r format(color("\\#extra", "red"), "code")` tag are very specific but useful topics that will be eventually covered but are not part of the core course/exam
 
+## Materials
+
+On Moodle there is a link to a getting started document with extra packages to install and some general information.
+
 ## R code
 
 I mainly use R for my daily work but a deep understanding of R is not necessary. 
