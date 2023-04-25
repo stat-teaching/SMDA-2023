@@ -7,7 +7,7 @@
 <!-- badges: end -->
 
 Material for the course “Statistical Methods And Data Analysis In
-Developmental Psychology” at the University of Padova.
+Developmental Psychology” at the University of Padova (DPSS).
 
 # Lectures
 

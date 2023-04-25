@@ -21,7 +21,7 @@ lectures <- readRDS("objects/lectures.rds")
 <!-- badges: start -->
 <!-- badges: end -->
 
-Material for the course "Statistical Methods And Data Analysis In Developmental Psychology" at the University of Padova.
+Material for the course "Statistical Methods And Data Analysis In Developmental Psychology" at the University of Padova (DPSS).
 
 # Lectures
 
