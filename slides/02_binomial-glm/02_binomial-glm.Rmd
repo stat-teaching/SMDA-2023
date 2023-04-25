@@ -699,6 +699,63 @@ centered <- dat |>
              label = latex2exp::TeX("$\\beta_0$"),
              size = 8) +
     ggtitle("Centering x")
+raw | centered
+```
+
+## Binomial GLM - Numerical predictors
+
+Let's return to our teddy child example and fitting the proper model:
+
+```{r}
+fit_glm <- glm(Depression_pp01 ~ Parental_stress, data = teddy, family = binomial(link = "logit"))
+summary(fit_glm)
+```
+
+## Binomial GLM - Numerical predictors
+
+The `(Intercept)` ($\beta_0$) is the probability of having post-partum depression for a mother with parental stress zero (maybe better centering?)
+
+$$
+p(yes|x = 0) = g^{-1}(\beta_0)
+$$
+
+```{r}
+plogis(coef(fit_glm)["(Intercept)"])
+```
+
+## Binomial GLM - Numerical predictors
+
+The `Parental_stress` ($\beta_1$) is the increase in the $log(odds)$ of having the post-partum depression for a unit increase in the parental stress index. If we take the exponential of $\beta_1$ we obtain the increase in the $odds$ of having post-partum depression for a unit increase in parental stress index.
+
+```{r}
+exp(coef(fit_glm)["Parental_stress"])
+```
+
+## Binomial GLM - Numerical predictors
+
+The problem is that, as shown before, the effects are non-linear on the probability scale while are linear on the logit scale. On the logit scale, all differences are constant:
+
+```{r}
+pr <- list(c(10, 11), c(50, 51), c(70, 71))
+
+predictions <- lapply(pr, function(x) {
+    predict(fit_glm, newdata = data.frame(Parental_stress = x))
+})
+
+predictions
+
+# notice that the difference is exactly the Parental_stress parameter
+sapply(predictions, diff)
+```
+
+## Binomial GLM - Numerical predictors
+
+While on the probability scale, the differences are not the same. This is problematic when interpreting the results of a Binomial GLM with a numerical predictor.
+
+```{r}
+(predictions <- lapply(predictions, plogis))
+
+sapply(predictions, diff)
 ```
 
 ## Binomial GLM - Divide by 4 rule
