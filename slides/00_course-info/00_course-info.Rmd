@@ -34,9 +34,9 @@ lectures <- readRDS("../../objects/lectures.rds")
 
 ## About me
 
-- I'm a post-doc researcher at the Department of Developmental Psychology and Socialization
-- I did a PhD in Experimental Psychology studying the unconscious working memory processing
-- I work with Professor Gianmarco Altoè on data analysis in Psychology, especially meta-analysis
+- I'm a **post-doc researcher** at the Department of Developmental Psychology and Socialization
+- I did a **PhD in Experimental Psychology** studying the unconscious working memory processing
+- I work with Professor Gianmarco Altoè on data analysis in Psychology, especially **meta-analysis**
 
 ## Office hours
 
@@ -155,10 +155,13 @@ I tried to make practical examples whenever possible and relevant. Furthermore w
 
 ## Prepare the course folder `#optional`
 
+\small
 - Install the packages of slide *R Packages*
-- Download and extract the **template course folder** from here
+- Download and extract the **template course folder** from here **[github.com/stat-teaching/SMDA-2023](https://github.com/stat-teaching/SMDA-2023/archive/refs/heads/template.zip)**.
 - Open the `SMDA-2023.Rproj` file
-- Now the command `devtools::load_all()` will load each function within the `R/` folder. You can consider this folder as an R Package
+- Use the command `devtools::load_all()` will load each function within the `R/` folder. You can consider this folder as an R Package
+- Run the `init_project()` function and the relevant folders and files will be created
+- From now, you can open the `SMDA-2023.Rproj` and organize data and exercises within that folder
 
 ## Final note
 
