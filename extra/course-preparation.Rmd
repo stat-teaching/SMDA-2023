@@ -8,15 +8,50 @@ output: pdf_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(kableExtra)
+devtools::load_all()
 ```
+
+# Lectures
+
+The lectures are summarized in the following table:
+
+```{r, echo = FALSE}
+lectures <- data.frame(
+  stringsAsFactors = FALSE,
+               Day = c("Wednesday","Thursday",
+                       "Tuesday","Wednesday","Thursday","Tuesday","Wednesday",
+                       "Thursday","Tuesday","Wednesday","Thursday"),
+              Date = c("26/04/2023","27/04/2023",
+                       "02/05/2023","03/05/2023","04/05/2023","09/05/2023",
+                       "10/05/2023","11/05/2023","16/05/2023","17/05/2023",
+                       "18/05/2023"),
+              Time = c("10:30-12:30","10:30-12:30",
+                       "10:30-12:30","10:30-12:30","10:30-12:30","10:30-12:30",
+                       "10:30-12:30","10:30-12:30","10:30-12:30",
+                       "10:30-12:30","10:30-12:30"),
+              Room = c("3L","3L","3L","3L","3L",
+                       "3L","3L","3L","3L","3L","3L")
+)
+
+lectures |> 
+    mytab() |> 
+    kable_styling(latex_options = "HOLD_position")
+```
+
+# Contacts
+
+- **Email**: filippo.gambarota@unipd.it
+- **Office**: 027, 1° Floor, Psico 1
+- **Office hours**: Schedule an appointment writing an email
 
 # R
 
-The course materials are created using R (4.3.0). To organize the materials I used the **R Projects** available with R Studio. I highly suggest you to use R Projects that significantly improves your workflow. A brief tutorial is available here [https://r4ds.had.co.nz/workflow-projects.html](https://r4ds.had.co.nz/workflow-projects.html).
+The course materials are created using R (4.3.0). To organize the materials I used **R Projects**, a feature available with R Studio. I highly suggest you to use R Projects that significantly improves your workflow. A brief tutorial is available here [https://r4ds.had.co.nz/workflow-projects.html](https://r4ds.had.co.nz/workflow-projects.html).
 
 ## R Materials
 
-All the slides and extra materials are available on Moodle. During the course and for the exercises we will use some **custom functions** that I wrote for the course. To download and use the function you can download the `utils.R` file from Moodle or from this [link](https://raw.githubusercontent.com/stat-teaching/stat-dev-psychology-2023/master/R/utils.R)(just `right-click > save`)
+All the slides and extra materials are available on Moodle. During the course and for the exercises we will use some **custom functions** that I wrote for the course. To download and use the function you can download the `utils-glm.R` file from Moodle or from here **`r download_link("https://github.com/stat-teaching/SMDA-2023/blob/master/R/utils-glm.R", print_url = TRUE)`**
 
 ## R Packages
 

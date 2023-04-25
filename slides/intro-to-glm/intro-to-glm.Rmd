@@ -85,6 +85,7 @@ In fact, in Psychology, variables do not always satisfy the properties of the Ga
 - Percentages or proportions
 - Discrete counts
 - Likert scales
+- ...
 
 ## Reaction times
 
@@ -131,9 +132,10 @@ dat <- data.frame(x = rpois(1e5, 15))
 
 dat |> 
     ggplot(aes(x = x)) +
-    geom_histogram(binwidth = 2,
-                   color = "black",
-                   fill = "lightblue") +
+    geom_bar(fill = "lightblue",
+             color = "black") +
+    mytheme() +
+    scale_x_continuous(breaks = seq(0, 50, 5)) +
     xlab("Number of new patients during one month") +
     ylab("Count") +
     mytheme()
@@ -141,14 +143,14 @@ dat |>
 
 ## Question...
 
-```{r, results='asis', echo=FALSE}
-question("Should we use a linear model for these variables?")
-```
+`r question("Should we use a linear model for these variables?")`
 
 ## Should we use a linear model for these variables?
 
-Let's try to fit a linear model on the probability of passing the exam as a function of the hours of study:
+Let's try to fit a linear model on the probability of passing the exam ($N = 50$) as a function of the hours of study:
 
+::: columns
+:::: column
 ```{r, echo = FALSE}
 # y = number of exercises solved in 1 semester
 # x = percentage of attended lectures
@@ -165,6 +167,15 @@ dat |>
     trim_df() |> 
     mytab()
 ```
+::::
+:::: column
+```{r, echo = FALSE}
+n <- length(dat$passing)
+data.frame(n = n, npassing = sum(dat$passing), nfailing = n - sum(dat$passing), ppassing = mean(dat$passing)) |> mytab()
+```
+
+::::
+:::
 
 ## Should we use a linear model for these variables?
 
@@ -192,9 +203,7 @@ exam_plot +
     geom_smooth(method = "lm", se = F)
 ```
 
-\begin{center}
-Do you see something strange?
-\end{center}
+`r center(color(bold("Do you see something strange?"), "myblue"))`
 
 ## Should we use a linear model for these variables?
 
@@ -209,8 +218,10 @@ exam_plot +
 
 ## Should we use a linear model for these variables?
 
-Another example, the number of solved exercises in a semester as a function of the number of attended lectures:
+Another example, the number of solved exercises in a semester as a function of the number of attended lectures ($N = 100$):
 
+::: columns
+:::: column
 ```{r, echo = FALSE}
 # y = number of exercises solved in 1 semester
 # x = percentage of attended lectures
@@ -225,6 +236,16 @@ dat |>
     trim_df() |> 
     mytab()
 ```
+::::
+:::: column
+```{r echo = FALSE}
+dat |> 
+    ggplot(aes(x = nsolved)) +
+    geom_bar() +
+    mytheme()
+```
+::::
+:::
 
 ## Should we use a linear model for these variables?
 
@@ -280,7 +301,7 @@ qqn + res_fit
 
 ## Should we use a linear model for these variables?
 
-Another little spoiler, the model should consider both the support of the `y` variable and the non linear pattern. Probably something like this:
+Another little spoiler, the model should consider both the support of the `y` variable and the non-linear pattern. Probably something like this:
 
 ```{r, echo = FALSE}
 exam_plot +
@@ -296,13 +317,9 @@ Both linear models somehow capture the expected relationship but there are serio
 - impossible predictions
 - poor fitting for non-linear patterns
 
-As a general rule in statistics:
+As a general rule in ~~life~~ statistics:
 
-\begin{displayquote}
-"All models are wrong, some are useful."
-
-`r tufte::quote_footer('--- George Box')`
-\end{displayquote}
+`r quote("\\textbf{All models are wrong, some are useful.}", "George Box")`
 
 ## We need a new class of models...
 
@@ -370,6 +387,18 @@ knitr::include_graphics("img/dunn2018-glm.jpg")
 
 The **random component** of a GLM identify the response variable $Y$ and the appropriate probability distribution. For example for a numerical and continuous variable we could use a Normal distribution (i.e., a standard linear model). For a discrete variable representing counts of events we could use a Poisson distribution, etc.
 
+```{r, echo = FALSE, out.width="50%"}
+par(mfrow = c(1,3))
+
+curve(dnorm(x), -4, 4, main = "Normal", ylab = "density(x)", cex.lab = 1.5, cex.main = 1.5)
+plot(0:10, dbinom(0:10, 10, 0.5), type = "h", main = "Binomial", ylab = "density(x)",
+     cex.lab = 1.5, cex.main = 1.5, xlab = "x")
+points(0:10, dbinom(0:10, 10, 0.5), pch = 19)
+plot(0:20, dpois(0:20, 8), type = "h", main = "Poisson", ylab = "density(x)",
+     cex.lab = 1.5, cex.main = 1.5,
+     xlab = "x")
+```
+
 ## Systematic Component
 
 The **systematic component** or *linear predictor* ($\eta$) of a GLM is the combination of explanatory variables i.e. $\beta_0 + \beta_1x_1 + ... + \beta_px_p$.
@@ -378,22 +407,24 @@ The **systematic component** or *linear predictor* ($\eta$) of a GLM is the comb
 \eta = \beta_0 + \beta_1x_1 + ... + \beta_px_p
 \end{align*}
 
+When the **link function** (see next slide) is used, the relationship between $\eta$ and the expected value $\mu$ of the **random component** is linear (as in standard linear models)
+
 ## Link Function
 
-- The **link function** $g(\mu)$ is the function that connects the expected value (i.e., the mean $\mu$) of the probability distribution (i.e., the random component) with the *linear combination* of predictors $g(\mu) = \beta_0 + \beta_1x_1 + ... + \beta_px_p$. The inverse of the link function $g^{-1}$ map the linear predictor ($\eta$) into the original scale.
+The **link function** $g(\mu)$ is an **invertible** function that connects the expected value (i.e., the mean $\mu$) of the probability distribution (i.e., the random component) with the *linear combination* of predictors $g(\mu) = \beta_0 + \beta_1x_1 + ... + \beta_px_p$. The inverse of the link function $g^{-1}$ map the linear predictor ($\eta$) into the original scale.
 
 \begin{align*}
 g(\mu) = \beta_0 + \beta_1x_1 + ... + \beta_px_p \\
 \mu = g^{-1}(\beta_0 + \beta_1x_1 + ... + \beta_px_p) 
 \end{align*}
 
+Thus, the relationship between $\mu$ and $\eta$ is linear only when the **link function ** is applied i.e. $g(\mu) = \eta$. 
+
 ## Link function
 
-- The simplest **link function** is the **identity link** where $g(\mu) = \mu$ and correspond to the standard linear model. In fact, the linear regression is just a GLM with a **Gaussian random component** and the **identity** link function.
+The simplest **link function** is the **identity link** where $g(\mu) = \mu$ and correspond to the standard linear model. In fact, the linear regression is just a GLM with a **Gaussian random component** and the **identity** link function.
 
-- There are multiple **random components** and **link functions** for example with a 0/1 binary variable the usual choice is using a **Binomial** random component and the **logit** link function.
-
-## Common link functions
+There are multiple **random components** and **link functions** for example with a 0/1 binary variable the usual choice is using a **Binomial** random component and the **logit** link function.
 
 ```{r, echo = FALSE}
 fam <- c("gaussian", "binomial", "binomial", "poisson")
@@ -403,7 +434,7 @@ range <- c("$(-\\infty,+\\infty)$", "$\\frac{0, 1, ..., n_{i}}{n_{i}}$",
            "$0, 1, 2, ...$")
 
 linktab <- data.frame(Family = fam, Link = link, Range = range)
-linktab |> mytab()
+linktab |> collapse_rows_df(Family) |> mytab()
 ```
 
 # Relevant distributions
@@ -442,7 +473,9 @@ p <- 0.7
 rbinom(1, n, p) # a single bernoulli trial
 
 n <- 10
-rbinom(1, 10, p) # n bernoulli trials
+rbinom(10, 1, p) # n bernoulli trials
+
+rbinom(1, n, p) # binomial version
 ```
 
 ::::
@@ -465,40 +498,78 @@ dat |>
 ::::
 :::
 
+## Bernoulli and Binomial
+
+The Bernoulli and the Binomial distributions are used as **random components** when we have the dependent variable assuming 2 values (e.g., *correct* and *incorrect*) and we have the total number of trials:
+
+- Accuracy on a cognitive task
+- Patients recovered or not after a treatment
+- People passing or not an exam
+
 ## Poisson distribution
 
 The number of events $k$ during a fixed time interval (e.g., number of new user on a website in 1 week) is:
 
 \begin{align*}
-f(j,\lambda) = Pr(X = k) = \frac{\lambda^k e^{-\lambda}}{k!}
+f(k,\lambda) = Pr(X = k) = \frac{\lambda^k e^{-\lambda}}{k!}
 \end{align*}
+
+Where $k$ is the number of occurrences ($k = 0, 1, 2, ...$), $e$ is Euler's number ($e = 2.71828...$) and $!$ is the factorial function. The mean and the variance of the Poisson distribution is $\lambda$
 
 ## Poisson distribution
 
 ```{r, echo = FALSE}
-lambda <- 10
-dat <- data.frame(x = 0:100)
-dat$y <- dpois(dat$x, lambda)
+lambda <- c(5, 10, 15)
+dat <- expand.grid(x = 0:100, lambda = lambda)
+dat$y <- dpois(dat$x, dat$lambda)
 
 dat |> 
     filter(x < 30) |> 
-    ggplot(aes(x = x, y = y)) +
+    ggplot(aes(x = x, y = y,
+               color = factor(lambda),
+               group = factor(lambda))) +
+    geom_point(size = 3) +
     geom_line() +
-    geom_point(size = 4, shape = 21, stroke = 3, color = "white",
-               fill = "black") +
     mytheme() +
     ylab(latex2exp::TeX("dpois(x, $\\lambda$)")) +
-    ggtitle(latex2exp::TeX("$\\lambda = 10$"))
+    scale_color_discrete(name = latex2exp::TeX("$\\lambda$")) +
+    theme(legend.position = "bottom")
 ```
 
-The mean and also the variance is $\lambda$.
+As $\lambda$ increases, the distribution is well approximated by a Gaussian distribution, but the Poisson is discrete.
 
 # Data simulation `#extra`
 
 ## Data simulation `#extra`
 
 - During the course we will try to simulate some data. Simulating data is an amazing education tool to understand a statistical model.
-- By simulating from a **generative model** we are doing **Monte Carlo Simulations** [@Gentle2009-cj]
+- By simulating from a **generative model** we are doing a so-called **Monte Carlo Simulations** [@Gentle2009-cj]
+
+## Data simulation `#extra`
+
+In R there are multiple functions to generate data from probability distributions:
+
+```{r, echo = FALSE}
+distr <- c(dnorm, dbinom)
+args <- lapply(distr, formals)
+
+distr <- c("norm", "pois", "binom")
+what <- c(r = "Generate random numbers", 
+          d = "Compute the density", 
+          q = "Return the quantile given a cumulative proability",
+          p = "Return the cumulative probability given a quantile")
+
+distr_tab <- tidyr::expand_grid(distr, what)
+
+distr_tab$fun <- sprintf("%s", code(names(distr_tab$what)))
+names(distr_tab) <- c("Distribution", "Action", "Function")
+
+distr_tab |> 
+    select(Function, Distribution, Action) |> 
+    arrange(Function) |> 
+    mytab() |> 
+    collapse_rows(columns = c(1,3))
+```
 
 ## Data simulation `#extra`
 

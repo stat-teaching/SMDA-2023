@@ -90,7 +90,7 @@ fixlatex <- function(x){
     stringr::str_replace_all(x, "_", ".")
 }
 
-mytab <- function(data, fontsize = 7, colnames = NA){
+mytab <- function(data, fontsize = 7, colnames = NA, ...){
     if(is.na(colnames)){
         colnames(data) <- stringr::str_replace_all(names(data), "_", ".")
     }
@@ -102,7 +102,8 @@ mytab <- function(data, fontsize = 7, colnames = NA){
               digits = 3,
               col.names = colnames, 
               format = "latex",
-              escape = FALSE) |> 
+              escape = FALSE,
+              align = "c") |> 
         kableExtra::kable_styling(position = "center", 
                                   font_size = fontsize) |> 
         kableExtra::row_spec(0, bold = TRUE)
@@ -139,6 +140,29 @@ code <- function(x){
 }
 
 question <- function(txt){
-    p <- "\\begin{center}\n\\huge\n\\textcolor{myblue}{\\textbf{%s}}\n\\end{center}"
-    cat(sprintf(p, txt))
+    p <- "\\begin{center} \\huge \\textcolor{myblue}{\\textbf{%s}} \\end{center}"
+    sprintf(p, txt)
+}
+
+center <- function(x){
+    sprintf("\\begin{center} %s \\end{center}", x)
+}
+
+bold <- function(x){
+    sprintf("\\textbf{%s}", x)
+}
+
+quote <- function(quote, name){
+    sprintf("\\epigraph{\\centering %s} {— %s}", quote, name)
+}
+
+# thanks to https://community.rstudio.com/t/kableextra-collapse-rows-not-working-reason-unknown/134721/2
+collapse_rows_df <- function(df, variable){
+    group_var <- enquo(variable)
+    df %>%
+        group_by(!! group_var) %>%
+        mutate(groupRow = 1:n()) %>%
+        ungroup() %>%
+        mutate(!!quo_name(group_var) := ifelse(groupRow == 1, as.character(!! group_var), "")) %>%
+        select(-c(groupRow))
 }
