@@ -46,10 +46,10 @@ funs <- get_funs(here("R", "utils.R"))
 ## Outline
 
 <!-- \tableofcontents[hideallsubsections] -->
-\scriptsize
+\footnotesize
 \tableofcontents
 
-# Binomial data
+# Binomial GLM
 
 ## Example: Passing the exam
 
@@ -173,7 +173,128 @@ ord |>
     )
 ```
 
-# Binomial GLM
+## Another example, **Teddy Child**
+
+We considered a Study conducted by the University of Padua (TEDDY Child
+Study, 2020)^[Thanks to Prof. Paolo Girardi for the example, see https://teddychild.dpss.psy.unipd.it/ for information]. Within the study, researchers asked the participants (mothers of a young child) about the presence of post-partum depression and measured the parental stress using the PSI-Parenting Stress Index.
+
+```{r, echo = FALSE}
+teddy <- read.csv(here("data", "teddy_child_local.csv"))
+teddy <- teddy |> 
+    select(ID, Parental_stress, Depression_pp)
+
+teddy |> 
+    trim_df() |> 
+    mytab()
+```
+
+## Another example, **Teddy Child**
+
+We want to see if the parental stress increase the probability of having post-partum depression:
+
+```{r, echo = FALSE}
+teddy |> 
+    ggplot(aes(x = Depression_pp, 
+               y = Parental_stress,
+               fill = Depression_pp)) +
+    geom_boxplot(outlier.colour = NA,
+                 show.legend = FALSE) +
+    geom_point(position = position_jitter(width = 0.2),
+               show.legend = FALSE) +
+    mytheme()
+```
+
+## Another example, **Teddy Child**
+
+```{r, echo = FALSE}
+teddy$Depression_pp01 <- ifelse(teddy$Depression_pp == "Yes", 1, 0) 
+
+teddy_plot <- teddy |> 
+    ggplot(aes(x = Parental_stress, y = Depression_pp01)) +
+    geom_point(position = position_jitter(height = 0.02),
+               alpha = 0.5) +
+    mytheme() +
+    ylab("Post-partum Depression") +
+    xlab("Parental Stress")
+teddy_plot
+```
+
+## Another example, **Teddy Child**
+
+Let's start by fitting a linear model `Depression_pp ~ Parental_stress`. We consider "Yes" as 1 and "No" as 0.
+
+```{r}
+fit_lm <- lm(Depression_pp01 ~ Parental_stress, data = teddy)
+summary(fit_lm)
+```
+
+## Another example, **Teddy Child**
+
+Let's add the fitted line to our plot:
+
+```{r, echo = FALSE}
+teddy_plot +
+    stat_smooth(method = "lm", se = FALSE)
+```
+
+## Another example, **Teddy Child**
+
+... and check the residuals, pretty bad right?
+
+```{r, echo = FALSE}
+par(mfrow = c(2,2))
+plot(fit_lm)
+```
+
+## Another example, **Teddy Child**
+
+As for the exam example, we could compute a sort of contingency table despite the `Parental_stress` is a numerical variable by creating some discrete categories (just for exploratory analysis):
+
+```{r, echo = FALSE}
+teddy <- teddy |> 
+    mutate(Parental_stress_c = case_when(
+        Parental_stress < 40 ~ "< 40",
+        Parental_stress >= 40 & Parental_stress < 60 ~ "40-60",
+        Parental_stress >= 60 & Parental_stress < 80 ~ "60-80",
+        Parental_stress >= 80 & Parental_stress < 100 ~ "80-100",
+        Parental_stress >= 100 ~ "> 100",
+    ))
+
+teddy$Parental_stress_c <- factor(teddy$Parental_stress_c,
+                                  levels = c("< 40", "40-60", "60-80", "80-100", "> 100"))
+```
+
+::: columns
+:::: column
+```{r}
+table(teddy$Depression_pp, teddy$Parental_stress_c) |> 
+    round(2)
+```
+
+::::
+:::: column
+```{r}
+table(teddy$Depression_pp, teddy$Parental_stress_c) |> 
+    prop.table(margin = 2) |> 
+    round(2)
+```
+
+::::
+:::
+
+## Another example, **Teddy Child**
+
+Ideally, we could compute the increase in the odds of having the post-partum depression as the parental stress increase. In fact, as we are going to see, the Binomial GLM is able to estimate the non-linear increase in the probability.
+
+```{r, echo = FALSE}
+teddy_plot +
+    stat_smooth(method = "lm", se = FALSE,
+                aes(color = "LM")) +
+    stat_smooth(method = "glm", se = FALSE, method.args = list(family = binomial),
+                aes(color = "GLM")) +
+    theme(legend.title = element_blank(),
+          legend.position = "bottom")
+```
 
 ## Binomial GLM
 
@@ -298,12 +419,6 @@ plot_invlogit <- ggplot() +
 plot_logit | plot_invlogit
 ```
 
-## Binomial GLM - Model fitting
-
-<!-- TODO add here -->
-
-ciao
-
 ## Binomial GLM - Model fitting in R
 
 ```{r, echo = FALSE}
@@ -399,46 +514,6 @@ exp(coef(fit)["tv_shows"])
 # from the contingency table
 odds_ratio(mean(dat$exam[dat$tv_shows == 1]),
            mean(dat$exam[dat$tv_shows == 0]))
-```
-
-# Binomial GLM - Diagnostic
-
-## Binomial GLM - Residual Deviance
-
-The residual deviance of a GLM is conceptually similar to the residual standard deviation of a standard linear model.
-
-$$
-D = -2log \mathcal{L}(\beta)
-$$
-
-The distance between a perfect model (i.e., saturated) and the current model can be considered as a goodness of fit measure. SPOILER the deviance is also useful to calculate a $R^2$ like measure comparing the null model with the actual model. <!-- TODO fix this -->
-
-## Binomial GLM - Residual Deviance^[Adapted from https://bookdown.org/egarpor/SSS2-UC3M/logreg-deviance.html]
-
-```{r, echo = FALSE}
-d <- data.frame(
-    x = seq(0, 1, 0.01)
-)
-
-d$y <- plogis(qlogis(0.2) + d$x*5)
-d$p <- rbinom(nrow(d), 1, d$y)
-
-d |>
-    slice_sample(n = 30) |> 
-    ggplot() +
-    ylim(c(0, 1)) +
-    geom_line(aes(x = x, y = y, color = "Current Model"),
-              linewidth = 0.8) +
-    geom_hline(aes(yintercept = mean(d$p), color = "Null Model"),
-               linewidth = 0.8) +
-    geom_line(aes(x = x, y = p, color = "Saturated Model"),
-              linewidth = 0.8) +
-    geom_point(aes(x = x, y = p), size = 3) +
-    scale_color_manual(values = c("#3CBCF8", "black", "#1CA14E")) +
-    mytheme() +
-    theme(legend.title = element_blank(),
-          legend.position = c(0.85,0.2)) +
-    ylab("Probability")
 ```
 
 # Binomial GLM - Parameter Intepretation
@@ -1075,6 +1150,44 @@ plot_param(fit, "tv_shows1") + mytheme()
 
 # Binomial GLM - Diagnostic
 
+## Binomial GLM - Residual Deviance
+
+The residual deviance of a GLM is conceptually similar to the residual standard deviation of a standard linear model.
+
+$$
+D = -2log \mathcal{L}(\beta)
+$$
+
+The distance between a perfect model (i.e., saturated) and the current model can be considered as a goodness of fit measure. SPOILER the deviance is also useful to calculate a $R^2$ like measure comparing the null model with the actual model. <!-- TODO fix this -->
+
+## Binomial GLM - Residual Deviance^[Adapted from https://bookdown.org/egarpor/SSS2-UC3M/logreg-deviance.html]
+
+```{r, echo = FALSE}
+d <- data.frame(
+    x = seq(0, 1, 0.01)
+)
+
+d$y <- plogis(qlogis(0.2) + d$x*5)
+d$p <- rbinom(nrow(d), 1, d$y)
+
+d |>
+    slice_sample(n = 30) |> 
+    ggplot() +
+    ylim(c(0, 1)) +
+    geom_line(aes(x = x, y = y, color = "Current Model"),
+              linewidth = 0.8) +
+    geom_hline(aes(yintercept = mean(d$p), color = "Null Model"),
+               linewidth = 0.8) +
+    geom_line(aes(x = x, y = p, color = "Saturated Model"),
+              linewidth = 0.8) +
+    geom_point(aes(x = x, y = p), size = 3) +
+    scale_color_manual(values = c("#3CBCF8", "black", "#1CA14E")) +
+    mytheme() +
+    theme(legend.title = element_blank(),
+          legend.position = c(0.85,0.2)) +
+    ylab("Probability")
+```
+
 ## Binomial GLM - Diagnostic
 
 The diagnostic for GLM is similar to standard linear models. Some areas are more complicated for example residual analysis and goodness of fit. We will see:
@@ -1414,7 +1527,7 @@ abline(coef = c(0, 1),
        col = alpha(rgb(0,0,0), 0.5))
 ```
 
-# Binomial GLM - Outliers and influential observations
+# Binomial GLM - Diagnostic
 
 ## Binomial GLM - Outliers and influential observations
 
@@ -1520,8 +1633,6 @@ dfbeta_plot(fit)
 dfbeta_plot(fit) + mytheme()
 ```
 
-# Checking model assumptions
-
 ## Residuals vs Fitted plot
 
 The **residual vs fitted** plot is very useful to identify pattern in residuals and heteroskedasticity. Let's generate some data where the true model is $y_i = \beta_0 + \beta_1x + \beta_2x^2$ and fit a model with and without the quadratic term^[Adapted from Dunn (2018, Figure 8.4)].
@@ -1615,8 +1726,6 @@ res_x2 <- ggplot(res,
 
 res_x + res_x2
 ```
-
-# Binomial vs Binary
 
 ## Binomial vs Binary
 
@@ -2021,7 +2130,7 @@ $$
 
 Where **HIT** is the **sensitivity** defined for the ROC analysis (*say signal present when the signal is actually present*) and the **FA** (*false alarms*) is 1 - **specificity** defined for the ROC analysis (*say signal present when the signal is actually absent*).
 
-## Binomial GLM - Probit link and Signal Detection Analysis `#extra`
+## Binomial GLM - Probit link and SDT `#extra`
 
 The signal detection formalize the problem as a system (e.g., a person) that take a decision based on a noisy signal. Each decision, the evidence (i.e., the signal) is compared to an internal criterion. If the perceived signal exceed the criterion, the person say **yes** otherwise **no**.
 
@@ -2029,7 +2138,7 @@ The signal detection formalize the problem as a system (e.g., a person) that tak
 - the noise distribution is $Noise \sim \mathcal{N}(0, 1)$
 - the optimal criterion is the midpoint between signal and noise $\frac{d'}{2}$ but a person could choose a different criterion (e.g., *conservative* or *liberal*)
 
-## Binomial GLM - Probit link and Signal Detection Analysis `#extra`
+## Binomial GLM - Probit link and SDT `#extra`
 
 Example: A group of clinicians need to guess the presence of learning disorders by observing a class of children during a day. Within the class 50% have learning disorders and 50% have no diagnosis.
 
@@ -2097,3 +2206,4 @@ coef(fit)[2]
 ```
 
 ## References
+\footnotesize
