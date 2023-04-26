@@ -6,6 +6,8 @@ institute: "University of Padova"
 bibliography: "https://raw.githubusercontent.com/filippogambarota/bib-database/main/references.bib"
 csl: "https://raw.githubusercontent.com/citation-style-language/styles/master/ieee.csl"
 link-citations: true
+nocite: |
+  @Gelman2020-tg, @Agresti2018-oh, @Agresti2015-cz, @Dunn2018-ww, @Fox2015-ps, @Faraway2016-py
 output: 
     beamer_presentation:
         latex_engine: xelatex
@@ -372,10 +374,31 @@ Detailed GLMs book. Very useful especially for the diagnostic part:
 knitr::include_graphics("img/dunn2018-glm.jpg")
 ```
 
+## Main references
+
+The holy book :)
+
+- Chapters: 14 and 15
+
+```{r, echo = FALSE, out.width="30%"}
+knitr::include_graphics("img/fox2015-applied-glm.jpg")
+```
+
+## Main references
+
+Another good reference...
+
+- Chapters: 8
+
+```{r, echo = FALSE, out.width="30%"}
+knitr::include_graphics("img/faraway2016-extending-glm.jpg")
+```
+
 ## General idea
 
-- models that assume distributions other than the normal distributions
-- models that considers non-linear relationships
+- models that assume **distributions other than the normal distributions**
+- models that considers **non-linear relationships**
+- models that allow **heteroscedasticity**
 
 ## Recipe for a GLM
 
@@ -602,3 +625,5 @@ hist(y)
 :::
 
 ## References
+
+\footnotesize
