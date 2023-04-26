@@ -13,3 +13,18 @@ download_link <- function(x, url_name = NULL, print_url = FALSE){
     }
     return(url)
 }
+
+extract_slides <- function(file, slides, out = NULL){
+    basefile <- tools::file_path_sans_ext(basename(file))
+    file_sans_ext <- tools::file_path_sans_ext(file)
+    if(is.null(out)){
+        out <- sprintf("%s_updating.pdf", file_sans_ext)
+    }
+    msg <- sprintf("Extracted from %s, from slide %s to slide %s!",
+                   cli::col_blue(basefile), 
+                   cli::col_green(slides[1]), 
+                   cli::col_green(slides[length(slides)]))
+    cli::cli_alert_success(msg)
+    pdf <- qpdf::pdf_subset(file, pages = slides, output = out)
+}
+
