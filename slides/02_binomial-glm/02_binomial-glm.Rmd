@@ -1212,10 +1212,17 @@ plot_param(fit, "tv_shows1") + mytheme()
 The residual deviance of a GLM is conceptually similar to the residual standard deviation of a standard linear model.
 
 $$
-D = -2log \mathcal{L}(\beta)
+D_{res} = -2(log \mathcal{L}_{sat}(\hat \beta) - log\mathcal{L}_{model}(\hat \beta))
 $$
+Where $\mathcal{L}_{sat}$ is the deviance of a saturated model i.e. a model with a parameter for each observation and $\mathcal{L}_{model}$ is the deviance of the current model.
 
-The distance between a perfect model (i.e., saturated) and the current model can be considered as a goodness of fit measure. SPOILER the deviance is also useful to calculate a $R^2$ like measure comparing the null model with the actual model. <!-- TODO fix this -->
+## Binomial GLM - Null Deviance
+
+The null deviance is the deviance calculated using a model with a single parameter (i.e., a null model):
+
+$$
+D_{null} = -2(log \mathcal{L}_{sat}(\hat \beta) - log\mathcal{L}_{null}(\hat \beta))
+$$
 
 ## Binomial GLM - Residual Deviance^[Adapted from https://bookdown.org/egarpor/SSS2-UC3M/logreg-deviance.html]
 
