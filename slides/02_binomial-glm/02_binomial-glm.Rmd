@@ -425,11 +425,18 @@ plot_logit | plot_invlogit
 knitr::include_graphics("img/glm-fitting-R.png")
 ```
 
+## The big picture...
+
+```{r, echo = FALSE}
+knitr::include_graphics("img/big-picture.png")
+```
+
+
 ## Binomial GLM - Model fitting in R
 
 We can model the contingency table presented before. We put data in **binary form**:
 
-```{r, echo = FALSE}
+```{r tvshows-data, echo = FALSE}
 set.seed(222)
 
 n <- 100
@@ -448,14 +455,26 @@ b1 <- 3.5 # odds ratio between watching and not watching
 dat$exam <- rbinom(n, 1, plogis(qlogis(b0) + log(b1)*dat$tv_shows))
 ```
 
+::: columns
+:::: column
 ```{r, echo = FALSE}
+# binomial data
+dat |> 
+    xtabs(~exam + tv_shows, data = _)
+```
+::::
+:::: column
+```{r, echo = FALSE}
+# binary data
 dat |> 
     trim_df()
 ```
+::::
+:::
 
 ## Binomial GLM - Intercept only model
 
-Let's start from the simplest model where the systematic part is only the intercept:
+Let's start from the simplest model (often called null model) where there are no predictors:
 
 ```{r}
 fit0 <- glm(exam ~ 1, data = dat, family = binomial(link = "logit"))
@@ -464,12 +483,19 @@ summary(fit0)
 
 ## Binomial GLM - Intercept only model
 
-When fitting an intercept-only model, the parameter is the average value of the `y` variable. In our case, we are fitting a model $logis(\pi) = \beta_0$. Thus using the inverse of the link function we obtain the average `y` on the response scale:
+When fitting an intercept-only model, the parameter is the average value of the `y` variable:
 
-In R the `logis` is the function to work with the logit transformation. `plogis()` is $logit^{-1}(\pi)$ and `qlogis` is $logit(\pi)$
+\begin{align*}
+\log(\frac{\pi}{1 - \pi}) = \beta_0 \\
+\pi = \frac{e^{\beta_0}}{1 + e^{\beta_0}}
+\end{align*}
+
+## Binomial GLM - Intercept only model
+
+In R, the $logit(\pi)$ is computed using `qlogis()` that is the `q` + `logis` combination of functions to work with probability distributions. The $logit^{-1}$ thus the inverse of the logit function is `plogis()`:
 
 ```{r}
-# average y on the response scale
+# average y on the respo nse scale
 mean(dat$exam)
 
 c("logit" = coef(fit0)[1],
@@ -852,25 +878,70 @@ summary(mrg)
 
 ## Binomial GLM - Wald tests
 
+```{r, echo = FALSE}
+n <- 100
+n_watching <- n/2 # just for simplicity
+p_pass_yes <- 0.7
+p_pass_no <- 0.3
+
+dat <- data.frame(
+    tv_shows = rep(c(1, 0), each = n_watching)
+)
+
+b0 <- 0.3 # P(passing|not watching)
+b1 <- 3.5 # odds ratio between watching and not watching
+
+# pn_from_or(0.3, 3.5) # P(passing|watching)
+
+dat$exam <- rbinom(n, 1, plogis(qlogis(b0) + log(b1)*dat$tv_shows))
+fit <- glm(exam ~ tv_shows, data = dat, family = binomial(link = "logit"))
+```
+
 The basic approach when doing inference with GLM is intepreting the Wald test of each model coefficients. The Wald test is calculated as follows:
 
 $$
 z = \frac{\beta_i - \beta_0}{\sigma_{\beta_i}}
 $$
 
-Calculating the p-value based on a standard normal distribution. We can calculate also the confidence interval for the model coefficients:
+Calculating the p-value based on a standard normal distribution.
+
+## Binomial GLM - Wald-type confidence intervals
+
+Wald-type confidence interval (directly from model summary), where $\Phi$ is the cumulative Gaussian function `qnorm()`:
 
 $$
-95\% CI = \beta_i \pm \Phi(\alpha/2)\sigma_{\beta_i}
+95\%CI = \hat \beta \pm \Phi(\alpha/2) SE_{\beta}  
 $$
+```{r}
+(summ <- data.frame(summary(fit)$coefficients))
 
-## Binomial GLM - Confidence intervals
+# 95% confidence interval
+summ$Estimate + qnorm(c(0.025, 0.95))*summ$Std..Error
+```
 
-Different types of confidence intervals
+## Binomial GLM - Wald-type confidence intervals
+
+You can also use the `plot_param()` function to represent the sampling distribution and the confidence interval:
+
+```{r}
+plot_param(fit, "tv_shows", ci = "z") + mytheme()
+```
+
+## Binomial GLM - Profile likelihood confidence intervals
+
+The computation is a little bit different and they are not always symmetric:
 
 ```{r}
 # profile likelihood, different from wald type
 confint(fit)
+```
+
+## Binomial GLM - Profile likelihood confidence intervals
+
+Again we can use the `plot_param()` function:
+
+```{r}
+plot_param(fit, "tv_shows", ci = "profile") + mytheme()
 ```
 
 ## Binomial GLM - Confidence intervals
@@ -946,7 +1017,7 @@ b1 <- log(odds_ratio(0.5, 0.3))
 b2 <- log(odds_ratio(0.7, 0.4))
 b3 <- 0
 dat <- sim_data(dat, plogis(qlogis(b0) + b1*x1_c + b2*x2_c + b3*x1_c*x2_c), "binomial")
-head(dat)
+head(dat |> select(-x1_c, -x2_c, -lp))
 ```
 
 We can fit the most complex model containing the two main effects and the interaction^[I set the contrasts for the two factors as `contr.sum()/2` that are required for a proper analysis of factorial designs]:
@@ -1004,8 +1075,8 @@ fit3 <- glm(y ~ x1 + x2, data = dat, family = binomial(link = "logit"))
 ## Binomial GLM - Model comparison
 
 ```{r}
-anova(fit1, fit2) # do not works properly
-anova(fit1, fit3) # same anova(fit2, fit3)
+anova(fit1, fit2, test = "LRT") # do not works properly
+anova(fit1, fit3, test = "LRT") # same anova(fit2, fit3)
 ```
 
 ## Binomial GLM - Information Criteria
@@ -1195,9 +1266,6 @@ plot(ggeffects::ggeffect(fit)[[1]]) + plot(ggeffects::ggeffect(fit2)[[1]])
 Sometimes could be useful to plot the estimated sampling distribution of a coefficient. For example, we can plot the `tv_shows` effect on our example. I've written the `plot_param()` function that directly create a basic-plot given the model and the coefficient name. The plot highlight the null value and the 95% Wald confidence interval.
 ::::
 :::: column
-```{r, eval = TRUE}
-plot_param(fit, "tv_shows1")
-```
 
 ```{r, echo = FALSE}
 plot_param(fit, "tv_shows1") + mytheme()
@@ -1207,24 +1275,65 @@ plot_param(fit, "tv_shows1") + mytheme()
 
 # Binomial GLM - Diagnostic
 
-## Binomial GLM - Residual Deviance
+## Deviance - Current model
 
-The residual deviance of a GLM is conceptually similar to the residual standard deviation of a standard linear model.
+```{r, echo = FALSE}
+set.seed(200)
 
-$$
-D_{res} = -2(log \mathcal{L}_{sat}(\hat \beta) - log\mathcal{L}_{model}(\hat \beta))
-$$
-Where $\mathcal{L}_{sat}$ is the deviance of a saturated model i.e. a model with a parameter for each observation and $\mathcal{L}_{model}$ is the deviance of the current model.
+x <- runif(10)
+y <- 0 + 3*x + rnorm(10)
 
-## Binomial GLM - Null Deviance
+dd <- data.frame(id = factor(1:10), y, x)
 
-The null deviance is the deviance calculated using a model with a single parameter (i.e., a null model):
+fit0 <- lm(y ~ 1, data = dd)
+fits <- lm(y ~ 0 + id, data = dd)
+fit <- lm(y ~ x, data = dd)
 
-$$
-D_{null} = -2(log \mathcal{L}_{sat}(\hat \beta) - log\mathcal{L}_{null}(\hat \beta))
-$$
+dd$yi <- fitted(fit)
 
-## Binomial GLM - Residual Deviance^[Adapted from https://bookdown.org/egarpor/SSS2-UC3M/logreg-deviance.html]
+null_plot <- ggplot(dd, aes(x = x, y = y)) +
+    geom_point(size = 3) +
+    mytheme() +
+    stat_smooth(method = 'lm', se = FALSE, formula = y ~ 1) +
+    geom_segment(aes(x = x, xend = x, y = coef(fit0)[1], yend = y)) +
+    geom_point(size = 3) +
+    ggtitle("Null model y ~ 1")
+
+sat_plot <- ggplot(dd, aes(x = x, y = y)) +
+    geom_point(size = 3) +
+    mytheme() +
+    stat_smooth(method = 'loess', span = 0.3) +
+    geom_point(size = 3) +
+    ggtitle("Saturated model y ~ id")
+
+fit_plot <- ggplot(dd, aes(x = x, y = y)) +
+    geom_point(size = 3) +
+    mytheme() +
+    stat_smooth(method = 'lm', se = FALSE) +
+    geom_point(size = 3) +
+    ggtitle("Current model y ~ x") +
+    geom_segment(aes(x = x, xend = x, y = yi, yend = y))
+```
+
+We can interpret the deviance similarly to the sum of squares in standard linear regression. With GLM the idea is to compare the current model or the null model with a saturated model and find the **null** and **residual** deviance.
+
+```{r, echo = FALSE}
+fit_plot
+```
+
+## Deviance - Saturated model
+
+```{r, echo = FALSE}
+sat_plot
+```
+
+## Deviance - Null model
+
+```{r, echo = FALSE}
+null_plot
+```
+
+## Deviance^[Adapted from https://bookdown.org/egarpor/SSS2-UC3M/logreg-deviance.html]
 
 ```{r, echo = FALSE}
 d <- data.frame(
@@ -1250,6 +1359,67 @@ d |>
     theme(legend.title = element_blank(),
           legend.position = c(0.85,0.2)) +
     ylab("Probability")
+```
+
+## Deviance - Example
+
+```{r, echo = FALSE}
+n <- 100
+n_watching <- n/2 # just for simplicity
+p_pass_yes <- 0.7
+p_pass_no <- 0.3
+
+dat <- data.frame(
+    tv_shows = rep(c(1, 0), each = n_watching)
+)
+
+b0 <- 0.3 # P(passing|not watching)
+b1 <- 3.5 # odds ratio between watching and not watching
+
+# pn_from_or(0.3, 3.5) # P(passing|watching)
+
+dat$exam <- rbinom(n, 1, plogis(qlogis(b0) + log(b1)*dat$tv_shows))
+fit <- glm(exam ~ tv_shows, data = dat, family = binomial(link = "logit"))
+dat$id <- factor(1:nrow(dat))
+```
+
+Let's fit the three models:
+
+```{r}
+# null
+fit0 <- glm(exam ~ 1, data = dat, family = binomial(link = "logit"))
+# current
+fit <- glm(exam ~ tv_shows, data = dat, family = binomial(link = "logit"))
+# saturated
+fits <- glm(exam ~ 0 + id, data = dat, family = binomial(link = "logit"))
+```
+
+## Binomial GLM - Residual Deviance
+
+The residual deviance of a GLM is conceptually similar to the residual standard deviation of a standard linear model.
+
+$$
+D_{res} = -2(log \mathcal{L}_{sat}(\hat \beta) - log\mathcal{L}_{model}(\hat \beta))
+$$
+
+Where $\mathcal{L}_{sat}$ is the deviance of a saturated model i.e. a model with a parameter for each observation and $\mathcal{L}_{model}$ is the deviance of the current model.
+
+```{r}
+-2*(logLik(fits) - logLik(fit))
+deviance(fit)
+```
+
+## Binomial GLM - Null Deviance
+
+The null deviance is the deviance calculated using a model with a single parameter (i.e., a null model):
+
+$$
+D_{null} = -2(log \mathcal{L}_{sat}(\hat \beta) - log\mathcal{L}_{null}(\hat \beta))
+$$
+
+```{r}
+-2*(logLik(fits) - logLik(fit0))
+deviance(fit0)
 ```
 
 ## Binomial GLM - Diagnostic
