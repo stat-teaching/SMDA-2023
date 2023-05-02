@@ -69,7 +69,7 @@ get_funs <- function(file){
     }
     fun_names <- gsub(" ", "", fun_names)
     names(out) <- fun_names
-    out <- lapply(out, function(x) x[!grepl("#'", x)]) # remove roxygen
+    out <- lapply(out, function(x) x[!grepl("#", x)]) # remove roxygen
     return(out)
 }
 

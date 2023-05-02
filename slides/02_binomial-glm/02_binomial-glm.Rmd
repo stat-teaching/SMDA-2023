@@ -42,7 +42,7 @@ library(here)
 ```
 
 ```{r functions, include = FALSE}
-funs <- get_funs(here("R", "utils.R"))
+funs <- get_funs(here("R", "utils-glm.R"))
 ```
 
 ## Outline
@@ -1227,6 +1227,7 @@ The diagnostic for GLM is similar to standard linear models. Some areas are more
   - Types of residuals
   - Residual deviance
 - Classification accuracy
+- Outliers and influential observations
 
 ## Likelihood
 
@@ -1530,7 +1531,7 @@ deviance(fit)
 We can calculate the null deviance:
 
 ```{r}
--2*(logLik(fit0) - logLik(fit))
+-2*(logLik(fit0) - logLik(fits))
 deviance(fit0)
 ```
 
@@ -1547,7 +1548,6 @@ To note, some measures are specific for the binomial GLM while other measures ca
 We will se:
 
 - McFadden's pseudo-$R^2$ (for GLMs in general)
-- Nagelkerke's $R^2$ (for GLMs in general)
 - Tjur's $R^2$ (only for binomial/binary models)
 
 ## McFadden's pseudo-$R^2$
@@ -1584,8 +1584,8 @@ As for standard linear models there are different types of residuals:
 
 - raw (response) residuals
 - pearson residuals
-- standardized pearson residuals
 - deviance residuals
+- standardized residuals
 
 ## Raw Residuals
 
@@ -1871,7 +1871,11 @@ pi <- (yi - yhat) / sqrt(yhat * (1 - yhat))
 pis <- pi / sqrt(1 - hi)
 pis[1:5]
 rstandard(fit, type = "pearson")[1:5]
+```
 
+## Binomial GLM Standardized Residuals `#extra`{.allowframebreaks}
+
+```{r}
 # deviance (for binomial GLM the loglik of the saturated model is 0)
 di <- sign(yi - yhat) * sqrt(-2*log(dbinom(y, 1, yhat)))
 
@@ -1987,64 +1991,6 @@ er_ratio = error_rate(fit0)/error_rate(fit)
 ```
 
 The **error rate** of the null model is `r round(er_ratio, 3)` times greater than the actual model.
-
-## Binomial GLM - ROC analysis `#extra`
-
-This prediction-based approach can be extended using the logistic regression to compute the receiver operating characteristic analysis. This is a more advanced topic but the idea is to use a binomial regression to make predictions and assess the prediction accuracy. This is commonly used in machine learning where the model is trained on a set of data trying to predict a set of new data.
-
-The ROC curve is a tool to assess the performance of a classifier model (e.g., binomial regression). The idea is to use several different threshold to create the 0/1 predictions (instead of 0.5 as in the previous slides) and find the optimal value.
-
-## Binomial GLM - ROC analysis `#extra`
-
-```{r echo = FALSE}
-dat <- sim_design(50, nx = list(x = runif(50)))
-dat <- sim_data(dat, plogis(qlogis(0.01) + 8*x))
-fit <- glm(y ~ x, data = dat, family = binomial(link = "logit"))
-```
-
-
-Let's use again the 0.5 threshold but computing all the classification metrics. We can just create a 2x2 table with model-based predictions (often called confusion matrix):
-
-```{r}
-pi <- ifelse(predict(fit, type = "response") > 0.5, 1, 0)
-yi <- fit$y
-
-# confusion matrix
-table(pi, yi)
-```
-
-## Binomial GLM - ROC analysis `#extra`
-
-There are several metrics to compute in a confusion matrix (see [here](https://en.wikipedia.org/wiki/Confusion_matrix)). To create a ROC curve we need to calculate the **True Positive Rate** (TPR, also called *sensitivity*) representing the proportion of $\hat y = 1$ when $y = 1$ using a specific threshold value and the **False Positive Rate** (FPR, also called *1 - specificity*) representing one minus the proportion of $\hat y = 1$ when $y = 0$. We could use the `classify(fit, th = )` function to compute relevant metrics from a fitted model and a given threshold:
-
-```{r}
-data.frame(classify(fit, 0.5))
-```
-
-## Binomial GLM - ROC analysis `#extra`
-
-Then simply using the `classify()` function with multiple thresholds we can have two vectors of TPRs and FPRs and plotting the ROC curve. The Area Under the Curve (AUC) ranges between 0 and 1 (more realistically between 0.5 and 1). The AUC is the ability of the classifier to classify $y$ values:
-
-```{r, echo = FALSE, out.width="70%"}
-th <- c(-Inf, seq(0, 1, 0.001), Inf)
-roc <- lapply(th, function(t) classify(fit, t))
-roc <- bind_rows(roc)
-roc$th <- th
-auc <- pROC::auc(y ~ x, data = dat)
-
-plot(roc$fpr, roc$tpr, 
-     type = "l",
-     xlab = "1 - Specificity",
-     ylab = "Sensitivity",
-     cex.lab = 1.3,
-     cex.axis = 1.3,
-     lwd = 1.4,
-     main = sprintf("Area Under the Curve = %.3f", auc))
-
-abline(coef = c(0, 1), 
-       lwd = 1.4, 
-       col = alpha(rgb(0,0,0), 0.5))
-```
 
 ## Binomial GLM - Outliers and influential observations
 
@@ -2423,6 +2369,64 @@ dat |>
 - On the other side, the *question difficulty example* can only be modelled using a binary regression because each trial (0/1) has a different value for the predictor
 - To include both predictors or to model multiple participants on the *question difficulty example* we need a mixed-effects (or multilevel) model where both levels togheter with the repeated-measures can be handled.
 
+## Binomial GLM - ROC analysis `#extra`
+
+This prediction-based approach can be extended using the logistic regression to compute the receiver operating characteristic analysis. This is a more advanced topic but the idea is to use a binomial regression to make predictions and assess the prediction accuracy. This is commonly used in machine learning where the model is trained on a set of data trying to predict a set of new data.
+
+The ROC curve is a tool to assess the performance of a classifier model (e.g., binomial regression). The idea is to use several different threshold to create the 0/1 predictions (instead of 0.5 as in the previous slides) and find the optimal value.
+
+## Binomial GLM - ROC analysis `#extra`
+
+```{r echo = FALSE}
+dat <- sim_design(50, nx = list(x = runif(50)))
+dat <- sim_data(dat, plogis(qlogis(0.01) + 8*x))
+fit <- glm(y ~ x, data = dat, family = binomial(link = "logit"))
+```
+
+
+Let's use again the 0.5 threshold but computing all the classification metrics. We can just create a 2x2 table with model-based predictions (often called confusion matrix):
+
+```{r}
+pi <- ifelse(predict(fit, type = "response") > 0.5, 1, 0)
+yi <- fit$y
+
+# confusion matrix
+table(pi, yi)
+```
+
+## Binomial GLM - ROC analysis `#extra`
+
+There are several metrics to compute in a confusion matrix (see [here](https://en.wikipedia.org/wiki/Confusion_matrix)). To create a ROC curve we need to calculate the **True Positive Rate** (TPR, also called *sensitivity*) representing the proportion of $\hat y = 1$ when $y = 1$ using a specific threshold value and the **False Positive Rate** (FPR, also called *1 - specificity*) representing one minus the proportion of $\hat y = 1$ when $y = 0$. We could use the `classify(fit, th = )` function to compute relevant metrics from a fitted model and a given threshold:
+
+```{r}
+data.frame(classify(fit, 0.5))
+```
+
+## Binomial GLM - ROC analysis `#extra`
+
+Then simply using the `classify()` function with multiple thresholds we can have two vectors of TPRs and FPRs and plotting the ROC curve. The Area Under the Curve (AUC) ranges between 0 and 1 (more realistically between 0.5 and 1). The AUC is the ability of the classifier to classify $y$ values:
+
+```{r, echo = FALSE, out.width="70%"}
+th <- c(-Inf, seq(0, 1, 0.001), Inf)
+roc <- lapply(th, function(t) classify(fit, t))
+roc <- bind_rows(roc)
+roc$th <- th
+auc <- pROC::auc(y ~ x, data = dat)
+
+plot(roc$fpr, roc$tpr, 
+     type = "l",
+     xlab = "1 - Specificity",
+     ylab = "Sensitivity",
+     cex.lab = 1.3,
+     cex.axis = 1.3,
+     lwd = 1.4,
+     main = sprintf("Area Under the Curve = %.3f", auc))
+
+abline(coef = c(0, 1), 
+       lwd = 1.4, 
+       col = alpha(rgb(0,0,0), 0.5))
+```
+
 # Binomial GLM - Probit link
 
 ## Binomial GLM - Probit link
@@ -2536,7 +2540,19 @@ probit_denp2 <- ggplot() +
               alpha = 0.5) +
     xlab(latex2exp::TeX("$\\Phi(\\pi)$"))
 
-probit_cum + (probit_denp1/probit_denp2)
+right_plot <- cowplot::plot_grid(
+    probit_denp1 + theme_minimal(base_size = 15), 
+    probit_denp2 + theme_minimal(base_size = 15),
+    nrow = 2
+)
+
+left_plot <- probit_cum
+
+cowplot::plot_grid(
+    left_plot + theme_minimal(base_size = 15), 
+    right_plot,
+    rel_widths = c(2,1)
+)
 ```
 
 ## Binomial GLM - Probit link and SDT `#extra`
