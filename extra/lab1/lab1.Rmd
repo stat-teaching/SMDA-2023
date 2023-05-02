@@ -1,0 +1,29 @@
+---
+title: "Title"
+subtitle: "Subtitle"
+author: "Filippo Gambarota"
+output: 
+        rmdformats::robobook:
+            toc_float: true
+            use_bookdown: true
+            lightbox: true
+            number_sections: false
+            css: !expr here::here('template', 'extra', 'extra.css')
+            highlight_downlit: true
+            df_print: paged
+bibliography: "https://raw.githubusercontent.com/filippogambarota/bib-database/main/references.bib"
+csl: "https://raw.githubusercontent.com/citation-style-language/styles/master/apa-6th-edition.csl"
+date: "202x-202x"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Packages
+
+```{r, echo = FALSE, results='asis'}
+report::cite_packages()
+```
+
+# References

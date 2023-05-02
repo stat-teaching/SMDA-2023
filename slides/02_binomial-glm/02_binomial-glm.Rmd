@@ -11,6 +11,8 @@ output:
         latex_engine: xelatex
         theme: "SimpleDarkBlue"
         includes:
+            header_includes:
+                - \usepackage{fontawesome}
             in_header: !expr here::here('template', 'slides', 'preamble.tex')
             after_body: !expr here::here('template', 'slides', 'after-body.tex')
 ---
@@ -1275,7 +1277,127 @@ plot_param(fit, "tv_shows1") + mytheme()
 
 # Binomial GLM - Diagnostic
 
-## Deviance - Current model
+## Likelihood
+
+The likelihood is the joint probability of the observed data viewed as a function of the parameters of a statistical model.
+
+$$
+\log \mathcal{L}(\mu|x) = \sum^n_{i = 1} \log(\mu|x_i)
+$$
+
+```{r}
+x <- rnorm(10) # data from normal distribution
+
+# data
+x
+
+# the model is a normal distribution with mu = 0 and sd = 1
+dnorm(x, 0, 1)
+
+# log likelihood
+sum(log(dnorm(x, 0, 1)))
+```
+
+## Likelihood
+
+By summing the logarithm all the red segments we obtain the log likelihood of the model given the observed data.
+
+```{r, echo = FALSE}
+dat <- data.frame(x)
+
+ll1 <- sum(log(dnorm(x, 0, 1)))
+
+lik1 <- ggplot(dat, aes(x = x, y = 0)) +
+    stat_function(fun = dnorm) +
+    xlim(c(-6,6)) +
+    geom_segment(aes(x = x, y = 0, xend = x, yend = dnorm(x)), col = "red") +
+    geom_point(size = 3) +
+    theme_minimal(base_size = 15) +
+    theme(axis.text.x = element_blank(),
+          axis.title.x = element_blank(),
+          axis.ticks.x = element_blank(),
+          plot.title = element_text(hjust = 0.5)) +
+    ggtitle(latex2exp::TeX("$\\mu = 0$, $\\sigma = 1$")) +
+    ylab("dnorm(x, 0, 1)") +
+    annotate("label",
+             x = 5, 
+             size = 6,
+             y = 0.2, parse = TRUE,
+             label = latex2exp::TeX(sprintf("$\\log \\L = %.3f$", ll1), output = "character"))
+
+
+ll2 <- sum(log(dnorm(x, 2, 1)))
+
+lik2 <- ggplot(dat, aes(x = x, y = 0)) +
+    stat_function(fun = dnorm, args = list(mean = 2, sd = 1)) +
+    xlim(c(-6,6)) +
+    geom_segment(aes(x = x, y = 0, xend = x, yend = dnorm(x, 2, 1)),
+                 col = "red") +
+    geom_point(size = 3) +
+    theme_minimal(base_size = 15) +
+    theme(axis.text.x = element_blank(),
+          axis.title.x = element_blank(),
+          axis.ticks.x = element_blank(),
+          plot.title = element_text(hjust = 0.5)) +
+    ggtitle(latex2exp::TeX("$\\mu = 2$, $\\sigma = 1$")) +
+    ylab("dnorm(x, 2, 1)") +
+    annotate("label",
+             x = 5, 
+             size = 6,
+             y = 0.2, parse = TRUE,
+             label = latex2exp::TeX(sprintf("$\\log \\L = %.3f$", ll2), output = "character"))
+
+
+ll3 <- sum(log(dnorm(x, -3, 1)))
+
+lik3 <- ggplot(dat, aes(x = x, y = 0)) +
+    stat_function(fun = dnorm, args = list(mean = -3, sd = 1)) +
+    xlim(c(-6,6)) +
+    geom_segment(aes(x = x, y = 0, xend = x, yend = dnorm(x, -3, 1)), col = "red") +
+    geom_point(size = 3) +
+    ggtitle(latex2exp::TeX("$\\mu = -3$, $\\sigma = 1$")) +
+    theme_minimal(base_size = 15) +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    ylab("dnorm(x, -3, 1)") +
+    annotate("label",
+             x = 5, 
+             size = 6,
+             y = 0.2, parse = TRUE,
+             label = latex2exp::TeX(sprintf("$\\log \\L = %.3f$", ll3), output = "character"))
+
+lik1 / lik2 /  lik3
+```
+
+## Likelihood
+
+In the previous slide we tried only 3 values for the mean. Let's image to calculate the log likelihood for several different means. The parameter with that is associated with highest likelihood is called the maximum likelihood estimator. In fact, the $\mu = 0$ is associated with the highest likelihood.
+
+```{r, echo = FALSE}
+mms <- seq(-10, 10, 0.01)
+lls <- sapply(mms, function(i) sum(log(dnorm(x, i, 1))))
+
+lik <- data.frame(mms, lls)
+
+lik |> 
+    ggplot(aes(x = mms, y = lls)) +
+    geom_line() +
+    mytheme() +
+    xlab(latex2exp::TeX("$\\mu$")) +
+    ylab(latex2exp::TeX("$\\log L$")) +
+    geom_point(x = 0, y = max(lik$lls), size = 4, col = "red")
+```
+
+## Deviance
+
+The (residual) deviance in the context of GLM can be considered as the distance between the current model and a perfect model (often called *saturated model*).
+
+$$
+D_{res} = -2[\log(\mathcal{L}_{current}) - (\log\mathcal{L}_{sat})]
+$$
+
+Where $\mathcal{L}$ is the likelihood of the considered model (see the previous slides). Clearly, the lower the deviance, the closer the current model to the perfect model suggesting a good fit.
+
+## Deviance - Saturated model
 
 ```{r, echo = FALSE}
 set.seed(200)
@@ -1315,22 +1437,73 @@ fit_plot <- ggplot(dd, aes(x = x, y = y)) +
     geom_segment(aes(x = x, xend = x, y = yi, yend = y))
 ```
 
-We can interpret the deviance similarly to the sum of squares in standard linear regression. With GLM the idea is to compare the current model or the null model with a saturated model and find the **null** and **residual** deviance.
+The saturated model is a model where each observation $x_i$ has a parameter.
 
 ```{r, echo = FALSE}
-fit_plot
-```
-
-## Deviance - Saturated model
-
-```{r, echo = FALSE}
-sat_plot
+sat_plot + fit_plot
 ```
 
 ## Deviance - Null model
 
+Another important quantity is the *null deviance* that is expressed as the distance between the *null model* and the *saturated model*.
+
+$$
+D_{null} = -2[\log(\mathcal{L}_{null}) - (\log\mathcal{L}_{sat})]
+$$
+
+The *null deviance* can be interpreted as the maximal deviance because is estimated using a model without predictors. A good model will have a residual deviance lower than the null model.
+
+## Deviance - Null model
+
 ```{r, echo = FALSE}
-null_plot
+sat_plot + null_plot
+```
+
+## Deviance - Likelihood Ratio Test
+
+When we perform a likelihood ratio test (see previous slides) we are essentially comparing the residual deviance (or the likelihood) of two models.
+
+```{r, echo = FALSE}
+dat <- sim_design(50, nx = list(x = runif(50)))
+dat <- sim_data(dat, plogis(qlogis(0.01) + 8*x))
+dat$id <- factor(dat$id)
+```
+
+```{r}
+fit_null <- glm(y ~ 1, data = dat, family = binomial(link = "logit"))
+fit_current <- glm(y ~ x, data = dat, family = binomial(link = "logit"))
+```
+
+## Deviance - Likelihood Ratio Test
+
+With the null model clearly the residual deviance is the same as the null deviance because we are not using predictors to reduce the deviance.
+
+```{r}
+summary(fit_null)
+```
+
+## Deviance - Likelihood Ratio Test
+
+If the predictor `x` is useful in explaining `y` the residual deviance will be reduced compared to the null (overall deviance).
+
+```{r}
+summary(fit_current)
+```
+
+## Deviance - Likelihood Ratio Test
+
+Comparing the two models we can understand if the deviance reduction can be considered statistically significant.
+
+```{r}
+anova(fit_null, fit_current, test = "LRT")
+```
+
+Notice that the difference between the two residual deviances is the test statistics that is distributed as a $\chi^2$ with $df = 1$.
+
+## Deviance - Likelihood Ratio Test
+
+```{r, echo = FALSE}
+knitr::include_graphics("img/lrt.pdf")
 ```
 
 ## Deviance^[Adapted from https://bookdown.org/egarpor/SSS2-UC3M/logreg-deviance.html]
@@ -1361,7 +1534,7 @@ d |>
     ylab("Probability")
 ```
 
-## Deviance - Example
+## Deviance - Example `#extra`
 
 ```{r, echo = FALSE}
 n <- 100
@@ -1394,35 +1567,23 @@ fit <- glm(exam ~ tv_shows, data = dat, family = binomial(link = "logit"))
 fits <- glm(exam ~ 0 + id, data = dat, family = binomial(link = "logit"))
 ```
 
-## Binomial GLM - Residual Deviance
+## Deviance - Example `#extra`
 
-The residual deviance of a GLM is conceptually similar to the residual standard deviation of a standard linear model.
-
-$$
-D_{res} = -2(log \mathcal{L}_{sat}(\hat \beta) - log\mathcal{L}_{model}(\hat \beta))
-$$
-
-Where $\mathcal{L}_{sat}$ is the deviance of a saturated model i.e. a model with a parameter for each observation and $\mathcal{L}_{model}$ is the deviance of the current model.
+We can calculate the residual deviance:
 
 ```{r}
--2*(logLik(fits) - logLik(fit))
+-2*(logLik(fit) - logLik(fits))
 deviance(fit)
 ```
 
-## Binomial GLM - Null Deviance
-
-The null deviance is the deviance calculated using a model with a single parameter (i.e., a null model):
-
-$$
-D_{null} = -2(log \mathcal{L}_{sat}(\hat \beta) - log\mathcal{L}_{null}(\hat \beta))
-$$
+We can calculate the null deviance:
 
 ```{r}
--2*(logLik(fits) - logLik(fit0))
+-2*(logLik(fit0) - logLik(fit))
 deviance(fit0)
 ```
 
-## Binomial GLM - Diagnostic
+## GLM - Diagnostic
 
 The diagnostic for GLM is similar to standard linear models. Some areas are more complicated for example residual analysis and goodness of fit. We will see:
 
@@ -1435,33 +1596,47 @@ The diagnostic for GLM is similar to standard linear models. Some areas are more
 
 As for standard linear models there are different types of residuals:
 
-- raw residuals
+- raw (response) residuals
 - pearson residuals
 - standardized pearson residuals
-- studentized residuals
 - deviance residuals
 
-## Binomial GLM - Raw Residuals
+## Raw Residuals
 
-<!-- TODO add dunn reference -->
+```{r, echo = FALSE}
+dat <- sim_design(50, nx = list(x = runif(50)))
+dat <- sim_data(dat, plogis(qlogis(0.01) + 8*x))
+fit <- glm(y ~ x, data = dat, family = binomial(link = "logit"))
+```
 
 Raw residuals, also called response residuals are the simplest type of residuals. They are calculated as in standard regression as:
 
-$$
+\begin{align*}
 r_i = y_i - \hat y_i
-$$
+\end{align*}
+
+Where $\hat y_i$ are the fitted values where the inverse of the link function has been applied.
 
 In R:
 
 ```{r}
 # equivalent to residuals(fit, type = "response") 
-ri <- dat2$y - fitted(fit2)
+ri <- fit$y - fitted(fit)
 ri[1:5]
 ```
 
-The problem is that in GLMs the mean and the variance of the distribution are usually correlated, creating a problem in residual analysis.
+The problem is that in GLMs the mean and the variance of the distribution are not independent, creating problems in residual analysis.
+
+## Raw Residuals
+
+We can use the custom function `plot_residuals()` to plot different type of residuals against fitted values:
+
+```{r}
+plot_resid(fit, type = "response") + mytheme()
+```
 
 ## Why raw residuals are problematic?
+\label{raw-resid-problems}
 
 This plot^[Adapted from Dunn (2018), Fig. 8.1] shows an example with the same residual for two different $x$ values on a Poisson GLM. Beyond the model itself, the same residual can be considered as extreme for low $x$ values and plausible for high $x$ values:
 
@@ -1505,31 +1680,9 @@ ggplot(data = dat, aes(x = x, y = y)) +
     mytheme()
 ```
 
-## Binomial GLM - Raw Residuals
-
-With binary data raw residuals usually shows a strange pattern:
-
-```{r, echo = FALSE}
-x <- runif(100, 0, 1)
-y <- rbinom(length(x), 1, plogis(qlogis(0.01) + x * 8))
-dat <- data.frame(y, x)
-fit <- glm(y ~ x, data = dat, family = binomial(link = "logit"))
-ri <- dat$y - fitted(fit)
-```
-
-```{r, echo = FALSE}
-res <- data.frame(ri = ri, yi = fitted(fit))
-
-ggplot(res, aes(x = ri, y = yi)) +
-    geom_point() +
-    ylab("Fitted") +
-    xlab("Raw Residuals") +
-    mytheme()
-```
-
 ## Binomial GLM - Binned (raw) Residuals
 
-Gelman and colleagues [@Gelman2020-tg, @Gelman2006-pc] proposed a type of residuals called **binned residuals**. The idea is to divide values into a certain number of bins, calculate the average fitted/residual and plot the results. To calculate binned residuals we need to:
+Gelman and colleagues [@Gelman2020-tg, @Gelman2006-pc] proposed a type of residuals called **binned residuals** to solve the problem of the previous plot for Binomial GLMs:
 
 - divide the fitted values into $n$ bins. The number is arbitrary but we need each bin to have enough observation to compute a reliable average
 - calculate the average fitted value and residual for each bin
@@ -1551,64 +1704,203 @@ head(data.frame(bres))
 plot(bres)
 ```
 
+## Pearson residuals
+
+Pearson residuals are raw residuals divided by the standard deviation of each residual. Given that the mean-variance relationship of GLMs, dividing by the standard deviation solve the problem of slide \ref{raw-resid-problems}. The denominator can be calculated just using the appropriate variance formula for that specific GLM.
+
+$$
+r_i = \frac{y_i - \hat y_i}{\sqrt{V(\hat y_i)}}
+$$
+
+## Pearson vs Raw residuals
+
+We can see the difference for a Poisson model^[We are using a Poisson model only because the residual pattern is more clear compared to a binomial model] when using raw vs pearson residuals. The non-constant variance is controlled on the right.
+
+```{r, echo = FALSE}
+set.seed(2025)
+sim <- sim_design(ns = 100, nx = list(x = runif(100)))
+sim <- sim_data(sim, exp(log(5) + log(10)*x), model = "poisson")
+fit <- glm(y ~ x, data = sim, family = poisson(link = "log"))
+
+(plot_resid(fit, type = "response") + mytheme()) + (plot_resid(fit, type = "pearson") + mytheme())
+```
 
 ## Binomial GLM - Pearson residuals
 
-Pearson residuals are raw residuals divided by the standard deviation of each residual. The idea is to take into account the mean-variance relationship of GLMs. When model assumptions are respected, Pearson residuals have an approximate normal distribution: For the binomial of the binomial GLM:
+For the Binomial (Bernoulli) GLM, the variance is calculated as $\hat \pi(1 - \hat \pi)$ where $\hat \pi$ is the residual value.
 
-\begin{align*}
-r_i = \frac{y_i - \hat y_i}{\sqrt{\hat p_i(1 - \hat p_i)}}
-\end{align*}
+$$
+r_i = \frac{y_i - \hat y_i}{\sqrt{\hat y_i(1 - \hat y_i)}}
+$$
 
 ```{r}
 # equivalent to residuals(fit, type = "pearson")
-pi <- predict(fit, type = "response")
-ri_pearson <- ri / sqrt(pi * (1 - pi))
+yi <- fitted(fit)
+ri_pearson <- ri / sqrt(yi * (1 - pi))
 ri_pearson[1:5]
 ```
 
-## Binomial GLM - Standardized Pearson residuals
+## Deviance residuals
 
-The standardized pearson residuals are pearson residuals standardized using the hat value of each residual. The hat values are the diagonal of the hat matrix.
+Deviance residuals are based on the residual deviance that we defined before. In fact, the residual deviance was just the sum of squared deviance residuals.
 
 $$
-r_i = \frac{y_i - \hat y_i}{\sqrt{(1 - h_i)}}
+r_i = sign(y_i - \hat y_i) \sqrt{-2[\log \mathcal{L}y_{i_{current}} - \log \mathcal{L}y_{i_{saturated}}]}
 $$
+Where $sign$ is the sign of the raw residual $i$. For the Bernoulli model the $\log \mathcal{L}y_{i_{saturated}}$ is always 0.
 
-```{r}
-# equivalent to residuals(fit, type = "pearson")
-h <- hatvalues(fit) # diagonal of the hat matrix
-ri_pearson_std <- ri_pearson / sqrt(1 - h)
-ri_pearson_std[1:5]
+## Binomial GLM - Deviance Residuals
+
+```{r, echo = FALSE}
+dat <- data.frame(x = runif(1e5))
+dat$lp <- plogis(qlogis(0.01) + 8*dat$x)
+dat$y <- rbinom(nrow(dat), 1, dat$lp)
+fit <- glm(y ~ x, data = dat, family = binomial())
+
+dat$lp <- round(dat$lp, 1)
+dat$yi <- fitted(fit)
+dat$ri <- residuals(fit)
+dat <- filter(dat, lp %in% c(0.1, 0.3, 0.5, 0.7, 0.9))
+
+set.seed(2022)
+dats <- car::some(dat, n = 10)
+
+coefs <- coef(fit)
+
+res_logis <- ggplot() +
+    xlim(c(0,1)) +
+    geom_segment(data = dats[dats$y == 0, ],
+                 aes(x = x, xend = x, y = 0, yend = yi),
+                 color = "red") +
+    geom_segment(data = dats[dats$y == 1, ],
+                 aes(x = x, xend = x, y = 1, yend = yi),
+                 color = "green") +
+    stat_function(fun = function(x) plogis(coefs[1] + coefs[2]*x)) +
+    geom_point(data = dats,
+               aes(x = x, y = y), size = 3) +
+    mytheme() +
+    ggtitle("Binomial GLM")
+
+res <- ggplot(dats, aes(x = yi, y = ri)) +
+    geom_hline(yintercept = 0, linetype = "dashed") +
+    ylim(c(-2,2)) +
+    geom_segment(aes(x = yi, xend = yi, y = ri, yend = 0,
+                     color = factor(y)),
+                 show.legend = FALSE) +
+    scale_color_manual(values = c("red", "green")) +
+    geom_point(size = 3) +
+    mytheme() +
+    xlab("fitted(fit)") +
+    ylab("Deviance Residuals")
+
+res_logis | res
 ```
 
-## Binomial GLM - Deviance residuals
+## Binomial GLM - Deviance Residuals `#extra`
 
-<!-- TODO maybe add a general formula for deviance residuals in glms -->
+To calculate and demonstrate manually the deviance residuals we can compute them manually in R:
 
-The **deviance residuals** are calculated using the likelihood of the model and as for standard linear model the sum of the squared deviance residuals is the residual deviance used to assess the model goodness of fit.
-
-$$
-sign(y_i - \hat y_i)\sqrt{-2(y_i log(\hat p_i) + (1 - y_i)log(1 - \hat p_i)}
-$$
-
-```{r}
-# equivalent to residuals(fit, type = "deviance")
-ri_deviance <- sign(ri)*sqrt(-2*(dat$y*log(pi) + (1 - dat$y)*log(1 - pi)))
-ri_deviance[1:5]
-
-# residual deviance
-sum(ri_deviance^2)
-fit$deviance
+```{r, echo = FALSE}
+dat <- sim_design(50, nx = list(x = runif(50)))
+dat <- sim_data(dat, plogis(qlogis(0.01) + 8*x))
+fit <- glm(y ~ x, data = dat, family = binomial(link = "logit"))
 ```
 
-Also the **deviance residuals** tends to have a normal distribution if the model assumptions are respected.
+```{r}
+# residual(fit, type = "deviance")
+yhat <- fitted(fit) # fitted
+y <- fit$y # actual values
 
-## Binomial GLM - Quantile residuals
+# the likelihood is dbinom
+ri_dev <- sign(y - yhat) * sqrt(-2*(log(dbinom(y, 1, yhat)) - log(dbinom(y, 1, y))))
+
+# notice that the log lik of the saturated model log(dbinom(y, 1, y)) is 0
+log(dbinom(y, 1, y))
+
+ri_dev[1:5]
+residuals(fit, type = "deviance")[1:5]
+```
+
+## Quick recap about hat values in linear regression
+
+\label{hatvalues-recap}
+
+The **hat matrix** $H$ is calculated as $H = X \left(X^{\top} X \right)^{-1} X^{\top}$ is a $n \times n$ matrix where $n$ is the number of observations. The diagonal of the $H$ matrix contained the hat values or leverages.
+
+The $i^{th}$ leverage score ($h_{ii}$) is interpreted as the weighted distance between $x_i$ and the mean of $x_i$'s. In practical terms is the $i^{th}$ observed value influence the $i^{th}$ fitted value. An high leverage suggest that the observation is far from the mean of predictors and have an high influence on the fitted values.
+
+- $h_{ii}$ ranges between 0 and 1
+- The sum of all $h_{ii}$ values is the number of parameters $p$
+- As a rule of thumb, an observation have an high leverage if $h_{ii} > 2 \bar h$ where $\bar h$ is the average hat value
+
+## Quick recap about hatvalues in linear regression
+<!-- TODO add fox 11.2 reference -->
+
+For a simple linear regression ($y \sim x$) the hat values are calculated as:
+
+$$
+h_i = \frac{1}{n} + \frac{(X_i - \bar X)^2}{\sum^n_{j = 1}(X_i - \bar X)^2}
+$$
+
+In R the function `hatvalues()` return the diagonal of the $H$ matrix for `glm` and `lm`:
+
+```{r}
+hatvalues(fit)[1:10]
+```
+
+To note, for GLM and multiple regression in general, the equation is different and more complicated but the intepretation and the R implementation is the same.
+
+## Standardized Residuals
+
+Both the response, pearson and deviance residuals can be considered as raw residuals. We can standardize residuals by dividing for the standard error computed with the hat values. In this way, the distribution will be approximately normal with $\mu = 0$ and $\sigma = 1$.
+
+$$
+r_{s_i} = \frac{r_i}{\sqrt{(1 - \hat h_{ii})}}
+$$
+
+Where $r_i$ can be raw, pearson or deviance residuals.
+
+## Standardized Residuals
+
+In R they can be extracted using `rstandard()`:
+
+```{r}
+rstandard(fit, type = "pearson")[1:5]
+rstandard(fit, type = "deviance")[1:5]
+```
+
+## Binomial GLM Standardized Residuals `#extra`{.allowframebreaks}
+
+We can try to manually calculate the residuals to better understand.
+
+```{r}
+yhat <- fitted(fit) # fitted
+yi <- fit$y # observed
+hi <- hatvalues(fit) # diagonal of the hat matrix
+
+# pearson residuals
+pi <- (yi - yhat) / sqrt(yhat * (1 - yhat))
+
+# standardized
+pis <- pi / sqrt(1 - hi)
+pis[1:5]
+rstandard(fit, type = "pearson")[1:5]
+
+# deviance (for binomial GLM the loglik of the saturated model is 0)
+di <- sign(yi - yhat) * sqrt(-2*log(dbinom(y, 1, yhat)))
+
+# standardized
+dis <- di / sqrt(1 - hi)
+
+dis[1:5]
+rstandard(fit, type = "deviance")[1:5]
+```
+
+## Quantile residuals `#extra`
 
 The **quantile residuals** is another proposal for residual analysis. The idea is to map the quantile of the cumulative density function (CDF) of the random component into the CDF of the normal distribution.
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, fig.width=10}
 dat <- data.frame(x = 0:30)
 dat$y <- pbinom(dat$x, 30, 0.5)
 dat$yl <- pbinom(dat$x-1, 30, 0.5)
@@ -1628,7 +1920,7 @@ qres1 <- dat |>
     geom_label(x = 25, y = pbinom(14, 30, 0.5), label = sprintf("b = %.2f", pbinom(14, 30, 0.5))) +
     geom_segment(x = 0, xend = 10, y = u, yend = u) +
     geom_segment(x = 14, xend = 14, y = 0, yend = pbinom(14, 30, 0.5)) +
-    geom_label(x = 6, y = u, label = sprintf("u = runif(1, a, b) = %.2f", u)) +
+    geom_label(x = 11, y = u, label = sprintf("u = runif(1, a, b) = %.2f", u)) +
     geom_point(x = 0, y = u, size = 3, col = "red") +
     geom_text(x = 17, y = 0, label = "y = 14") +
     xlab("y") +
@@ -1650,7 +1942,7 @@ qres2 <- temp |>
 qres1 + qres2
 ```
 
-## Binomial GLM - Quantile residuals
+## Binomial GLM - Quantile residuals `#extra`
 
 **Quantile residuals** are very useful especially for Discrete GLMs (binomial and poisson) and are exactly normally distributed (under respected model assumptions) compared to **deviance** and **pearson** residuals [@Dunn1996-yd]. They can be calculated using the `statmod::qresid(fit)` function. Authors suggest to run the function 4 times to disentagle between the randomization and the systematic component.
 
@@ -1659,7 +1951,7 @@ statmod::qresid(fit)[1:5]
 statmod::qresid(fit)[1:5] # different every time
 ```
 
-## Binomial GLM - Quantile residuals
+## Binomial GLM - Quantile residuals `#extra`
 
 ```{r, echo = FALSE}
 dat <- data.frame(ri = statmod::qresid(fit))
@@ -1718,6 +2010,13 @@ The ROC curve is a tool to assess the performance of a classifier model (e.g., b
 
 ## Binomial GLM - ROC analysis `#extra`
 
+```{r echo = FALSE}
+dat <- sim_design(50, nx = list(x = runif(50)))
+dat <- sim_data(dat, plogis(qlogis(0.01) + 8*x))
+fit <- glm(y ~ x, data = dat, family = binomial(link = "logit"))
+```
+
+
 Let's use again the 0.5 threshold but computing all the classification metrics. We can just create a 2x2 table with model-based predictions (often called confusion matrix):
 
 ```{r}
@@ -1765,48 +2064,9 @@ abline(coef = c(0, 1),
 
 Identification of influential observation and outliers of GLMs is very similar to standard regression models. We will briefly see:
 
-- The hat values
+- Studentized residuals
 - Cook Distances
 - DFBETAs
-
-## Quick recap about hatvalues in linear regression
-
-The **hat matrix** $H$ is calculated as $H = X \left(X^{\top} X \right)^{-1} X^{\top}$ is a $n \times n$ matrix where $n$ is the number of observations. The diagonal of the $H$ matrix containes the hatvalues or leverages.
-
-The $i^{th}$ leverage score ($h_{ii}$) is interpreted as the weighted distance between $x_i$ and the mean of $x_i$'s. In practical terms is the $i^{th}$ observed value influence the $i^{th}$ fitted value. An high leverage suggest that the observation is far from the mean of predictors and have an high influence on the fitted values.
-
-- $h_{ii}$ ranges between 0 and 1
-- The sum of all $h_{ii}$ values is the number of parameters $p$
-- As a rule of thumb, an observation have an high leverage if $h_{ii} > 2 \bar h$ where $\bar h$ is the average hatvalue
-
-## Quick recap about hatvalues in linear regression
-<!-- TODO add fox 11.2 reference -->
-
-For a simple linear regression ($y \sim x$) the hatvalues are calculated as:
-
-$$
-h_i = \frac{1}{n} + \frac{(X_i - \bar X)^2}{\sum^n_{j = 1}(X_i - \bar X)^2}
-$$
-
-In R the function `hatvalues()` return the diagonal of the $H$ matrix for `glm` and `lm`:
-
-```{r}
-hatvalues(fit)[1:10]
-```
-
-To note, for GLM and multiple regression in general, the equation is different and more complicated but the intepretation and the R implementation is the same.
-
-## Binomial GLM - Standardized/Studentized residuals
-
-The **response**, **pearson** and **deviance** residuals are defined as *raw* residuals. Using hatvalues is possible to compute the standardized version of these residuals. The residuals have different variance according to the actual value. Including the hatvalues stabilize the variance.
-
-In R the standardize version of residuals can be obtained using:
-
-```{r}
-rstandard(fit, type = "deviance")[1:5] # standardized deviance residuals
-rstudent(fit)[1:5] # studentized
-rstandard(fit, type = "pearson")[1:5] # standardized pearson residuals
-```
 
 ## Binomial GLM - Cook Distances
 
@@ -2437,5 +2697,5 @@ fit <- glm(say_disorder ~ has_disorder,
 coef(fit)[2]
 ```
 
-## References
+## References {.allowframebreaks}
 \footnotesize

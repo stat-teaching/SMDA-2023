@@ -402,3 +402,51 @@ rnb <- function(n, mu, vmr){
         MASS::rnegbin(n, mu, phi)
     }
 }
+
+# plotting different type of residuals for (g)lm models
+
+plot_resid <- function(fit, 
+                       x = NULL, 
+                       type = c("response", 
+                                "pearson", 
+                                "deviance",
+                                "student"),
+                       standard = FALSE){
+    require(ggplot2)
+    type <- match.arg(type)
+    
+    if(type %in% c("deviance", "pearson") & standard){
+        resids <- rstandard(fit, type = type)
+        yl <- paste(type, "standardized residuals")
+    }else if(type == "student"){
+        if(standard) warning("The 'standard' argument is not relevant for studentized residuals")
+        resids <- rstudent(fit)
+        yl <- "studentized residuals"
+    }else{
+        resids <- residuals(fit, type = type)
+        yl <- paste(type, "residuals")
+    }
+    
+    res <- data.frame(
+        residuals = resids
+    )
+    
+    if(!is.null(x)){
+        res$x <- fit$data[[x]]
+        xl <- x
+    }else{
+        res$x <- fitted(fit)
+        xl <- "fitted(fit)"
+    }
+    
+    ggplot(res,
+           aes(x = x, y = residuals)) +
+        geom_hline(yintercept = 0, linetype = "dashed", col = "red") +
+        geom_point(size = 2.5,
+                   alpha = 0.7) +
+        xlab(xl) +
+        ylab(yl) +
+        geom_smooth(formula = y ~ x,
+                    method = "loess",
+                    se = FALSE)
+}

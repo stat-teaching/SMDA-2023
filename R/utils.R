@@ -28,3 +28,21 @@ extract_slides <- function(file, slides, out = NULL){
     pdf <- qpdf::pdf_subset(file, pages = slides, output = out)
 }
 
+update_script_date <- function(file){
+    script <- readLines(file)
+    where_date <- grepl("%% DATE %%", script)
+    script[where_date] <- gsub("%% DATE %%", Sys.Date(), date[where_date])
+    writeLines(script, file)
+}
+
+purl_here <- function(file, output = NULL){
+    if(is.null(output)){
+        output <- gsub("Rmd", "R", file)
+        knitr::purl(file, output = output, documentation = 2) 
+    }
+}
+
+
+
+
+
