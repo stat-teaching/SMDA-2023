@@ -1093,66 +1093,6 @@ data.frame(AIC(fit1, fit2, fit3)) |>
     arrange(AIC)
 ```
 
-## Binomial GLM - $R^2$
-
-Compared to the standard linear regression, there are multiple ways to calculate an $R^2$ like measure for GLMs and there is no consensus about the most appropriate method. There are some useful resources:
-
-- https://stats.oarc.ucla.edu/other/mult-pkg/faq/general/faq-what-are-pseudo-r-squareds/
-
-To note, some measures are specific for the binomial GLM while other measures can be applied also to other GLMs (e.g., the poisson)
-
-## Binomial GLM - $R^2$
-
-We will se:
-
-- McFadden's pseudo-$R^2$ (for GLMs in general)
-- Nagelkerke's $R^2$ (for GLMs in general)
-- Tjur's $R^2$ (only for binomial/binary models)
-
-## McFadden's pseudo-$R^2$
-
-The McFadden's pseudo-$R^2$ compute the ratio between the log-likelihood of the intercept-only (i.e., null) model and the current model[@McFadden1987-qq]:
-
-$$
-R^2 = 1 - \frac{log(\mathcal{L}_{m})}{log(\mathcal{L}_{0})}
-$$
-
-There is also the adjusted version that take into account the number of parameters of the model. In R can be computed manually or using the `performance::r2_mcfadden()`:
-
-```{r}
-performance::r2_mcfadden(fit2)
-```
-
-## Nagelkerke's $R^2$
-
-$$
-R^2 = \frac{1 - \frac{L_0}{L_m}^{2/n}}{1 - l_0^{2/n}}
-$$
-
-This $R^2$ measure is actually an improvement of the $R^2$ by Cox and Snell [@Cox1989-ql] to correct the fact that in binomial models the range of the $R^2$ was not 0-1 as in standard $R^2$ measures [@Nagelkerke1991-gr].
-
-In R:
-
-```{r}
-performance::r2_coxsnell(fit2) # uncorrected
-performance::r2_nagelkerke(fit2) # uncorrected
-```
-
-## Tjur's $R^2$
-
-This measure is the easiest to interpret and calculate but can only be applied for binomial binary models [@Tjur2009-ml]. Is the absolute value of the difference between the proportions of correctly classifing $y = 1$ and $y = 0$ from the model:
-
-\begin{align*}
-\pi_1 = p(y_i = 1 |\hat y_i = 1) \\
-\pi_2 = p(y_i = 0 |\hat y_i = 0) = 1 - \pi_1 \\
-R^2 = |\pi_1 - \pi_2|
-\end{align*}
-
-```{r}
-performance::r2_tjur(fit2)
-```
-
-
 # Binomial GLM - Plotting effects
 
 ## Binomial GLM - Marginal effects
@@ -1275,7 +1215,18 @@ plot_param(fit, "tv_shows1") + mytheme()
 ::::
 :::
 
-# Binomial GLM - Diagnostic
+# GLM - Diagnostic
+
+## GLM - Diagnostic
+
+The diagnostic for GLM is similar to standard linear models. Some areas are more complicated for example residual analysis and goodness of fit. We will see:
+
+- Deviance
+- $R^2$
+- Residuals
+  - Types of residuals
+  - Residual deviance
+- Classification accuracy
 
 ## Likelihood
 
@@ -1583,14 +1534,49 @@ We can calculate the null deviance:
 deviance(fit0)
 ```
 
-## GLM - Diagnostic
+## Binomial GLM - $R^2$
 
-The diagnostic for GLM is similar to standard linear models. Some areas are more complicated for example residual analysis and goodness of fit. We will see:
+Compared to the standard linear regression, there are multiple ways to calculate an $R^2$ like measure for GLMs and there is no consensus about the most appropriate method. There are some useful resources:
 
-- Residuals
-  - Types of residuals
-  - Residual deviance
-- Classification accuracy
+- https://stats.oarc.ucla.edu/other/mult-pkg/faq/general/faq-what-are-pseudo-r-squareds/
+
+To note, some measures are specific for the binomial GLM while other measures can be applied also to other GLMs (e.g., the poisson)
+
+## Binomial GLM - $R^2$
+
+We will se:
+
+- McFadden's pseudo-$R^2$ (for GLMs in general)
+- Nagelkerke's $R^2$ (for GLMs in general)
+- Tjur's $R^2$ (only for binomial/binary models)
+
+## McFadden's pseudo-$R^2$
+
+The McFadden's pseudo-$R^2$ compute the ratio between the log-likelihood of the intercept-only (i.e., null) model and the current model[@McFadden1987-qq]:
+
+$$
+R^2 = 1 - \frac{D_{current}}{D_{null}}
+$$
+
+There is also the adjusted version that take into account the number of parameters of the model. In R can be computed manually or using the `performance::r2_mcfadden()`:
+
+```{r}
+performance::r2_mcfadden(fit)
+```
+
+## Tjur's $R^2$
+
+This measure is the easiest to interpret and calculate but can only be applied for binomial binary models [@Tjur2009-ml]. Is the absolute value of the difference between the proportions of correctly classifying $y = 1$ and $y = 0$ from the model:
+
+\begin{align*}
+\pi_1 = p(y_i = 1 |\hat y_i = 1) \\
+\pi_2 = p(y_i = 0 |\hat y_i = 0) = 1 - \pi_1 \\
+R^2 = |\pi_1 - \pi_2|
+\end{align*}
+
+```{r}
+performance::r2_tjur(fit2)
+```
 
 ## Binomial GLM - Residuals
 
@@ -1651,26 +1637,26 @@ b1 <- log(8)
 
 y <- rpois(300, exp(b0 + b1*x))
 
-dat <- data.frame(x, y)
+dat_temp <- data.frame(x, y)
 
-fit <- glm(y ~ x, data = dat, family = poisson(link = "log"))
+fit_temp <- glm(y ~ x, data = dat_temp, family = poisson(link = "log"))
 
-dat$yi <- predict(fit, type = "response")
+dat_temp$yi <- predict(fit, type = "response")
 
 ds <- data.frame(x = xs)
-ds$y <- dat$y[x %in% xs]
-ds$yi <- predict(fit, ds, type = "response")
+ds$y <- dat_temp$y[x %in% xs]
+ds$yi <- predict(fit_temp, ds, type = "response")
 ds$dist <- distributional::dist_normal(ds$y, sqrt(ds$yi))
 
 library(distributional)
 library(ggdist)
 
-ggplot(data = dat, aes(x = x, y = y)) +
+ggplot(data = dat_temp, aes(x = x, y = y)) +
     geom_point() +
-    geom_point(x = xs[1] - 0.02, y = dat$y[x == xs[1]], size = 5, col = "red") +
-    geom_point(x = xs[1] - 0.02, y = dat$y[x == xs[1]] + 8, size = 5, col = "red") +
-    geom_point(x = xs[2] - 0.02, y = dat$y[x == xs[2]], size = 5, col = "red") + 
-    geom_point(x = xs[2] - 0.02 , y = dat$y[x == xs[2]] + 8, size = 5, col = "red") +
+    geom_point(x = xs[1] - 0.02, y = dat_temp$y[x == xs[1]], size = 5, col = "red") +
+    geom_point(x = xs[1] - 0.02, y = dat_temp$y[x == xs[1]] + 8, size = 5, col = "red") +
+    geom_point(x = xs[2] - 0.02, y = dat_temp$y[x == xs[2]], size = 5, col = "red") + 
+    geom_point(x = xs[2] - 0.02 , y = dat_temp$y[x == xs[2]] + 8, size = 5, col = "red") +
     stat_dist_halfeye(data = ds, aes(y = y, dist = dist),
                       .width = c(NA, NA),
                       scale = 1,
@@ -1720,9 +1706,9 @@ We can see the difference for a Poisson model^[We are using a Poisson model only
 set.seed(2025)
 sim <- sim_design(ns = 100, nx = list(x = runif(100)))
 sim <- sim_data(sim, exp(log(5) + log(10)*x), model = "poisson")
-fit <- glm(y ~ x, data = sim, family = poisson(link = "log"))
+fit_temp <- glm(y ~ x, data = sim, family = poisson(link = "log"))
 
-(plot_resid(fit, type = "response") + mytheme()) + (plot_resid(fit, type = "pearson") + mytheme())
+(plot_resid(fit_temp, type = "response") + mytheme()) + (plot_resid(fit_temp, type = "pearson") + mytheme())
 ```
 
 ## Binomial GLM - Pearson residuals
@@ -1736,7 +1722,7 @@ $$
 ```{r}
 # equivalent to residuals(fit, type = "pearson")
 yi <- fitted(fit)
-ri_pearson <- ri / sqrt(yi * (1 - pi))
+ri_pearson <- ri / sqrt(yi * (1 - yi))
 ri_pearson[1:5]
 ```
 

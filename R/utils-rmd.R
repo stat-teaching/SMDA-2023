@@ -25,18 +25,31 @@ new_material <- function(what, name){
     }
 }
 
-create_index <- function(){
+create_slide_index <- function(){
     slides <- list.files("slides/", 
                          pattern = ".Rmd|.pdf",
                          recursive = TRUE, 
                          full.names = TRUE)
-    slides <- slides[!grepl("_files|deprecated", slides)]
+    slides <- slides[!grepl("_files|deprecated|updating|img", slides)]
     name <- unique(tools::file_path_sans_ext(basename(slides)))
     rmd <- slides[grepl(".Rmd", slides)]
     pdf <- slides[grepl(".pdf", slides)]
     name <- gsub("_", " ", name)
     sprintf("- **%s**: [Rmd](%s), [PDF](%s)", name, rmd, pdf)
 }
+
+create_lab_index <- function(){
+    labs <- list.files("labs/", 
+                       pattern = ".R|.html",
+                       recursive = TRUE, 
+                       full.names = TRUE)
+    name <- unique(tools::file_path_sans_ext(basename(labs)))
+    rmd <- labs[grepl(".Rmd", labs)]
+    r <- labs[grepl(".R$", labs)]
+    html <- labs[grepl(".html", labs)]
+    name <- gsub("_", " ", name)
+    sprintf("- **%s**: [Rmd](%s), [html](%s), [R code](%s)", name, rmd, html, r)
+} 
 
 get_funs <- function(file){
     file <- suppressWarnings(readLines(file))

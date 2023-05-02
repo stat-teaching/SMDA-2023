@@ -186,7 +186,7 @@ Thursday
 </tbody>
 </table>
 
-# Contents
+# Slides
 
 - **00 course-info**: [Rmd](slides//00_course-info/00_course-info.Rmd),
   [PDF](slides//00_course-info/00_course-info.pdf)
@@ -198,3 +198,8 @@ Thursday
   [PDF](slides//02_binomial-glm/02_binomial-glm.pdf)
 - **03 poisson-glm**: [Rmd](slides//03_poisson-glm/03_poisson-glm.Rmd),
   [PDF](slides//03_poisson-glm/03_poisson-glm.pdf)
+
+# Labs
+
+- **lab8**: [Rmd](labs//lab8.Rmd), [html](labs//lab8.html), [R
+  code](labs//lab8.R)

@@ -30,8 +30,14 @@ lectures |>
     kableExtra::kable()
 ```
 
-# Contents
+# Slides
 
 ```{r echo = FALSE, results='asis'}
-create_index() |> cat(sep = "\n")
+create_slide_index() |> cat(sep = "\n")
+```
+
+# Labs
+
+```{r echo = FALSE, results='asis'}
+create_lab_index() |> cat(sep = "\n")
 ```
