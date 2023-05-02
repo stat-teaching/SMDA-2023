@@ -188,7 +188,7 @@ summary(fit0)
 Then we can fit the full model by putting all predictors:
 
 ```{r}
-fit1 <- glm(admit ~ gre + gpa + rank, family = binomial(link = "logit"), data = admission)
+fit1 <- glm(admit ~ gre + gpa + rankc, family = binomial(link = "logit"), data = admission)
 summary(fit1)
 ```
 
@@ -240,7 +240,7 @@ Plotting also the dfbeta:
 dfbeta_plot(fit1)
 ```
 
-Check if there are observations with high studentized residuals:
+Check if there are observations with high standardized (studentized) residuals:
 
 ```{r}
 outlierTest(fit1) # Testing outliers
@@ -282,7 +282,7 @@ Let's try fitting the model with the new variable:
 
 ```{r}
 admission$gre100 <- admission$gre/100
-fit2 <- glm(admit ~ gre100 + gpa + rank, family = binomial(link = "logit"), data = admission)
+fit2 <- glm(admit ~ gre100 + gpa + rankc, family = binomial(link = "logit"), data = admission)
 
 summary(fit2)
 ```

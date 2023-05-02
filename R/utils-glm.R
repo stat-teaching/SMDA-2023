@@ -232,7 +232,7 @@ dfbeta_plot <- function(fit,
         ggplot2::geom_label(data = dfb[dfb$out, ],
                             fill = "white",
                             aes(x = value, y = id, label = id)) +
-        ggplot2::facet_wrap(~variable, scales = "free") +
+        ggplot2::facet_wrap(~variable, scales = "free_x") +
         ggplot2::xlab("DFBETAs") +
         ggplot2::ylab("Observations")
 }
