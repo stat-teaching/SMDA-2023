@@ -37,7 +37,7 @@ theme_set(theme_minimal(base_size = 15))
 ```{r script, echo=FALSE}
 ## Link in Github repo
 downloadthis::download_link(
-  link = download_link("https://github.com/stat-teaching/SMDA-2023/blob/master/lab/lab8.R"),
+  link = download_link("https://github.com/stat-teaching/SMDA-2023/blob/master/labs/lab8.R"),
   button_label = "Download the R script",
   button_type = "danger",
   has_icon = TRUE,
