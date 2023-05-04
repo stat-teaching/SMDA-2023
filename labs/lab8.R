@@ -11,14 +11,14 @@
 #' date: "Updated on `r Sys.Date()`"
 #' ---
 #' 
-## ----setup, include=FALSE--------------------------------------------------------------
+## ----setup, include=FALSE-----------------------------------------------------------------------------------------------
 knitr::opts_chunk$set(echo = TRUE,
                       message = FALSE,
                       warning = FALSE,
                       dev = "svg")
 
 #' 
-## ----packages, message=FALSE, warning=FALSE--------------------------------------------
+## ----packages, message=FALSE, warning=FALSE-----------------------------------------------------------------------------
 devtools::load_all() # if using the rproject dowloaded from the slides
 # source("utils-glm.R") # if using a standard setup
 library(here)
@@ -30,14 +30,14 @@ library(car) # general utilities
 library(MuMIn) # model selection
 
 #' 
-## ----options, include = FALSE----------------------------------------------------------
+## ----options, include = FALSE-------------------------------------------------------------------------------------------
 theme_set(theme_minimal(base_size = 15))
 
 #' 
-## ----script, echo=FALSE----------------------------------------------------------------
+## ----script, echo=FALSE-------------------------------------------------------------------------------------------------
 ## Link in Github repo
 downloadthis::download_link(
-  link = download_link("https://github.com/stat-teaching/SMDA-2023/blob/master/lab/lab8.R"),
+  link = download_link("https://github.com/stat-teaching/SMDA-2023/blob/master/labs/lab8.R"),
   button_label = "Download the R script",
   button_type = "danger",
   has_icon = TRUE,
@@ -62,7 +62,7 @@ downloadthis::download_link(
 #' 
 #' We need to set the **working directory** on the root of the course folder using `set.wd()`. Using R Projects is just necessary to open the `.RProj` file and the working directory will be automatically correctly selected.
 #' 
-## --------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------
 # reading data
 admission <- read.csv(here("data", "admission.csv"), header=TRUE)
 
@@ -85,7 +85,7 @@ summary(admission)
 #' 
 #' We could change the type of `rank` to factor because we are going to use it as a categorical (maybe ordinal) variable.
 #' 
-## --------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------
 admission$rankc <- factor(admission$rank, levels = 1:4, labels = 1:4)
 
 #' 
@@ -93,7 +93,7 @@ admission$rankc <- factor(admission$rank, levels = 1:4, labels = 1:4)
 #' 
 #' We can plot the univariate distribution of each variable:
 #' 
-## --------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------
 # gre and gpa
 admission |> 
     select(gre, gpa) |> 
@@ -104,13 +104,13 @@ admission |>
     facet_wrap(~name, scales = "free")
 
 #' 
-## --------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------
 admission |> 
     ggplot(aes(x = rank)) +
     geom_bar()
 
 #' 
-## --------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------
 admission |> 
     ggplot(aes(x = admit)) +
     geom_bar()
@@ -118,12 +118,12 @@ admission |>
 #' 
 #' Then we can cut the `gpa` and `gre` variabiles into categories and plot the admissions for each bin (i.e., a contingency table):
 #' 
-## --------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------
 admission$gpa_c <- cut(admission$gpa, seq(4, 6, 0.2), labels = FALSE)
 admission$gre_c <- cut(admission$gre, seq(260, 960, 50), labels=FALSE)
 
 #' 
-## --------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------
 # admission ~ gpa
 admission |> 
     ggplot(aes(x = gpa_c, fill = factor(admit))) +
@@ -141,7 +141,7 @@ admission |>
 #' 
 #' Given that the number of admitted is lower than the number of non admitted, we can have a look at the proportion of admission for each bin:
 #' 
-## --------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------
 admission |> 
     group_by(gpa_c) |> 
     summarise(admit = mean(admit),
@@ -169,7 +169,7 @@ admission |>
 #' 
 #' Finally we can have a look at the admissions as a function of the rank of the undergrad institution:
 #' 
-## --------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------
 # margin = 2 means that each colum will sum to 1
 prop.table(table(admission$admit, admission$rank), margin = 2)
 
@@ -180,15 +180,15 @@ prop.table(table(admission$admit, admission$rank), margin = 2)
 #' 
 #' Now we ca fit the model using `glm()`. Let's start by fitting a *null* model with no predictors. We choose a binomial `glm` with a **logit** link function.
 #' 
-## --------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------
 fit0 <- glm(admit ~ 1, data = admission, family = binomial(link = "logit"))
 summary(fit0)
 
 #' 
 #' Then we can fit the full model by putting all predictors:
 #' 
-## --------------------------------------------------------------------------------------
-fit1 <- glm(admit ~ gre + gpa + rank, family = binomial(link = "logit"), data = admission)
+## -----------------------------------------------------------------------------------------------------------------------
+fit1 <- glm(admit ~ gre + gpa + rankc, family = binomial(link = "logit"), data = admission)
 summary(fit1)
 
 #' 
@@ -196,13 +196,13 @@ summary(fit1)
 #' 
 #' Firstly we can have a look to the `residual ~ fitted` plot:
 #' 
-## --------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------
 plot_resid(fit1, type = "pearson")
 
 #' 
 #' Given that the `admit` is a binary variables and we are using a bernoulli model we can use the **binned residuals** to have a better idea:
 #' 
-## --------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------
 binres <- data.frame(performance::binned_residuals(fit1, n_bins = 20))
 
 binres |> 
@@ -217,38 +217,38 @@ binres |>
 #' 
 #' Then we can check each predictors as a function of residuals:
 #' 
-## ---- fig.width=10, fig.height=10------------------------------------------------------
+## ---- fig.width=10, fig.height=10---------------------------------------------------------------------------------------
 residualPlots(fit1, tests = FALSE)
 
 #' 
 #' Then we can check for influential observations:
 #' 
-## --------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------
 infl <- infl_measure(fit1)
 head(infl)
 
 #' 
 #' Plotting using `car`
 #' 
-## --------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------
 car::influenceIndexPlot(fit1, vars = c("Studentized", "hat", "Cook"))
 
 #' 
 #' Plotting also the dfbeta:
 #' 
-## ---- fig.width=10, fig.height=10------------------------------------------------------
+## ---- fig.width=10, fig.height=10---------------------------------------------------------------------------------------
 dfbeta_plot(fit1)
 
 #' 
-#' Check if there are observations with high studentized residuals:
+#' Check if there are observations with high standardized (studentized) residuals:
 #' 
-## --------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------
 outlierTest(fit1) # Testing outliers
 
 #' 
 #' For potentially influential observations we could fir a model subtracting that specific observation and compare coefficients. This is similar to the dfbeta metric that suggest no influential observations on model parameters.
 #' 
-## --------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------
 # Is 198 really influential?
 fit1_no198 <- update(fit1, subset=-c(198))
 compareCoefs(fit1, fit1_no198)
@@ -258,13 +258,13 @@ compareCoefs(fit1, fit1_no198)
 #' 
 #' Firstly, we can extract model parameters, taking the exponential to interpret them as odds ratios:
 #' 
-## --------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------
 broom::tidy(fit1, exponentiate = TRUE, conf.int = TRUE)
 
 #' 
 #' We can interpret these parameters as: for a unit increase in the `x`, the odds of being accepted in grad school increase by `exp(beta)`. If we multiply the `exp(beta)*100` we obtain the expected increase in percentage. Given that we have multiple parameters, when we intepret a specific parameter we are controlling for other parameters.
 #' 
-## --------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------
 broom::tidy(fit1, exponentiate = TRUE, conf.int = TRUE) |>
     slice(-1) |> 
     mutate(estperc = estimate * 100)
@@ -272,7 +272,7 @@ broom::tidy(fit1, exponentiate = TRUE, conf.int = TRUE) |>
 #' 
 #' To better interpret the parameters we need to make sure that the scale is meaningful. For example, the `gre` effect seems to be very small but statistically significant. The reason is that a unit increase in `gre` is very small. We could for example rescale the variable dividing for a constant term:
 #' 
-## --------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------
 par(mfrow = c(1,2))
 hist(admission$gre)
 hist(admission$gre/100)
@@ -280,14 +280,14 @@ hist(admission$gre/100)
 #' 
 #' Let's try fitting the model with the new variable:
 #' 
-## --------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------
 admission$gre100 <- admission$gre/100
-fit2 <- glm(admit ~ gre100 + gpa + rank, family = binomial(link = "logit"), data = admission)
+fit2 <- glm(admit ~ gre100 + gpa + rankc, family = binomial(link = "logit"), data = admission)
 
 summary(fit2)
 
 #' 
-## --------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------
 broom::tidy(fit2, exponentiate = TRUE, conf.int = TRUE) |>
     slice(-1) |> 
     mutate(estperc = estimate * 100)
@@ -297,37 +297,37 @@ broom::tidy(fit2, exponentiate = TRUE, conf.int = TRUE) |>
 #' 
 #' Generally we can plot the effects for a better overview of the model:
 #' 
-## --------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------
 plot(effects::allEffects(fit1))
 
 #' 
 #' To interpret the parameters in probability terms we could use the divide by 4 rule that express the maximum slope (i.e., the maximum probability increase):
 #' 
-## --------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------
 coef(fit2)[-1]/4
 
 #' 
 #' Similarly we can compute the marginal effects for each variable that represents the average slope:
 #' 
-## --------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------
 margins::margins(fit2) |> summary()
 
 #' 
 #' Beyond the model coefficients, we could use a likelihood ratio test. Let's start by comparing the null model with the current model. We hope that our variables combinations are doing a better job compared to a null model:
 #' 
-## --------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------
 anova(fit0, fit1, test = "LRT")
 
 #' 
 #' As expected from model summary and the deviance reduction, the variables are useful to predict the probability of admission. How useful? we could use some $R^2$-like measures:
 #' 
-## --------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------
 performance::r2_tjur(fit1)
 
 #' 
 #' Despite useful, the model has a low $R^2$. Furthermore the correct classification rate is higher than the chance level but relatively low:
 #' 
-## --------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------
 1 - error_rate(fit1)
 
 #' 
@@ -335,7 +335,7 @@ performance::r2_tjur(fit1)
 #' 
 #' We could try a model comparison starting from the null model and finishing to the overall model:
 #' 
-## --------------------------------------------------------------------------------------
+## -----------------------------------------------------------------------------------------------------------------------
 fit2 <- update(fit2, na.action = na.fail) # required for mumin
 dredge(fit2)
 
