@@ -48,3 +48,5 @@ rsconnect/
 *_local.*
 
 *.log
+
+*-live*

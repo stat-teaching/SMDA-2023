@@ -25,9 +25,9 @@ library(here)
 library(tidyr) # for data manipulation
 library(dplyr) # for data manipulation
 library(ggplot2) # plotting
-library(performance) # diagnostic
 library(car) # general utilities
-library(MuMIn) # model selection
+library(effects) # for extracting and plotting effects 
+library(emmeans) # for marginal effectss
 ```
 
 ```{r options, include = FALSE}
