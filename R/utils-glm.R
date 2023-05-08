@@ -387,10 +387,10 @@ contr.sum2 <- function(n){
 # are generated from a negative binomial distribution
 # an useful message is printed along returning the vector of values
 
-rnb <- function(n, mu, vmr){
+rnb <- function(n, mu, vmr, message = FALSE){
     if(vmr == 1){
         msg <- sprintf("y ~ Poisson(mu = %2.f), vmr = %.2f", mu, vmr)
-        cat(msg)
+        if(message) message(msg)
         rpois(n, mu)
     }else{
         # vmr = v / m
@@ -398,7 +398,7 @@ rnb <- function(n, mu, vmr){
         # v = mu + mu^2/phi
         phi <- -(mu^2/(mu - v))
         msg <- sprintf("y ~ NegBin(mu = %2.f, phi = %.2f), var = %.2f, vmr = %.2f", mu, phi, v, vmr)
-        message(msg)
+        if(message) message(msg)
         MASS::rnegbin(n, mu, phi)
     }
 }

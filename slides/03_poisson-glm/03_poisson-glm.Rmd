@@ -1,5 +1,5 @@
 ---
-title: "Poisson GLM"
+title: "Poisson Generalized Linear Model"
 author: "Filippo Gambarota"
 date: "2022/2023 \\linebreak \\linebreak Updated on `r Sys.Date()`"
 institute: "University of Padova"
@@ -11,27 +11,53 @@ output:
         latex_engine: xelatex
         theme: "SimpleDarkBlue"
         includes:
+            header_includes:
+                - \usepackage{fontawesome}
             in_header: !expr here::here('template', 'slides', 'preamble.tex')
+            after_body: !expr here::here('template', 'slides', 'after-body.tex')
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE,
+knitr::opts_chunk$set(echo = TRUE,
+                      eval = TRUE,
+                      size = "tiny",
                       message = FALSE,
                       warning = FALSE,
                       fig.align = "center",
-                      out.width = "100%")
+                      out.width = "80%")
+
+def.chunk.hook  <- knitr::knit_hooks$get("chunk")
+knitr::knit_hooks$set(chunk = function(x, options) {
+  x <- def.chunk.hook(x, options)
+  ifelse(options$size != "normalsize", paste0("\n \\", options$size,"\n\n", x, "\n\n \\normalsize"), x)
+})
 ```
 
-```{r packages}
+```{r packages, include=FALSE}
 devtools::load_all()
 library(tidyverse)
 library(kableExtra)
 library(patchwork)
+library(here)
+```
+
+```{r functions, include = FALSE}
+funs <- get_funs(here("R", "utils-glm.R"))
 ```
 
 ## Outline
 
 \tableofcontents[hideallsubsections]
+
+## Poisson GLM
+
+Everything that we discussed for the binomial GLM is also relevant for the Poisson GLM. We are gonna focus on specificity of the Poisson model in particular:
+
+- **Poisson distribution** and **link function**
+- **Parameters interpretation**
+- **Overdispersion** causes, consequences and remedies
+
+# Poisson distribution
 
 ## Poisson distribution
 
@@ -44,7 +70,7 @@ Where the mean is $\mu$ and the variance is $\mu$
 
 ## Poisson distribution
 
-```{r}
+```{r, echo = FALSE}
 lambda <- 5
 x <- 0:15
 dx <- dpois(x, lambda)
@@ -110,32 +136,211 @@ dat |>
     ggtitle(latex2exp::TeX("y = 0.69 + 2.71*x"))
 ```
 
+## Link function
+
+The common (and default in R) link function ($g(\lambda)$) for the Poisson distribution is the **log** link function and the inverse of link function is the exponential.
+
+\begin{align*}
+log(\lambda) = \beta_0 + \beta_{1}X_{1} + ...\beta_pX_p \\
+\lambda = e^{\beta_0 + \beta_{1}X_{1} + ...\beta_pX_p}
+\end{align*}
+
+# Parameters intepretation
+
+## An example...
+
+Let's start by a simple example trying to explain the number of errors of math exercises by students (N = 100) as a function of the number of hours of study.
+
+```{r, echo = FALSE}
+dat <- sim_design(100, nx = list(studyh = round(runif(100, 0, 100), 0))) |> 
+    sim_data(exp(log(10) + 0.02*studyh), model = "poisson")
+
+dat <- dat |> 
+    rename("solved" = y) |> 
+    select(-lp)
+
+dat |> 
+    trim_df() |> 
+    mytab()
+```
+
+## An example...
+
+- There is a clear non-linear pattern
+- There seems to be a positive relationship
+- The variance seems to increase as a function of the predictor (remember that mean and variance are the same value for the Poisson)
+
+```{r, echo = FALSE}
+dat |> 
+    ggplot(aes(x = studyh, y = solved)) +
+    geom_point() +
+    mytheme() +
+    xlab("Hours of study") +
+    ylab("Solved exercises")
+```
+
+## Model fitting
+
+We can fit the model using the `glm` function in R setting the appropriate **random component** (`family`) and the **link function** (`link`):
+
+```{r}
+fit <- glm(solved ~ studyh, family = poisson(link = "log"), data = dat)
+
+summary(fit)
+```
+
+## Parameters intepretation
+
+```{r, echo = FALSE}
+fitt <- broom::tidy(fit)
+```
+
+- The `(Intercept)` `r sprintf("$%.3f$", fitt$estimate[1])` is the log of the expected number of solved exercises for a student with 0 hours of studying. Taking the exponential we obtain the estimation on the response scale `r sprintf("$%.3f$", exp(fitt$estimate[1]))`
+- the `studyh` `r sprintf("$%.3f$", fitt$estimate[2])` is the increase in the expected increase of (log) solved exercises for a unit increase in hours of studying. Taking the exponential we obtain the ratio of increase of the number of solved exercises `r sprintf("$%.3f$", exp(fitt$estimate[2]))`
+
+## Parameters intepretation
+
+Again, as in the binomial model, the effects are linear on the log scale but non-linear on the response scale.
+
+```{r, echo = FALSE}
+dat |> 
+    mutate(logsolved = log(solved)) |> 
+    pivot_longer(3:4) |> 
+    mutate(name = ifelse(name == "solved", "Response", "Log")) |> 
+    ggplot(aes(x = studyh, y = value)) +
+    facet_wrap(~name, scales = "free") +
+    geom_point() +
+    ylab("Solved") +
+    xlab("Hours of studying") +
+    mytheme()
+```
+
+## Parameters intepretation
+
+The non-linearity can be easily seen using the `predict()` function:
+
+```{r}
+linear <- predict(fit, newdata = data.frame(studyh = c(10, 11)))
+diff(linear) # same as the beta0
+
+nonlinear <- exp(linear) # or predict(..., type = "response")
+diff(nonlinear)
+
+# ratio of increase when using the response scale
+nonlinear[2]/nonlinear[1]
+# equivalent to exp(beta1)
+exp(coef(fit)[2])
+```
+
+## Parameters intepretation - Categorical variable
+
+Let's make a similar example with the number of solved exercises comparing students who attended online classes and students attending in person.
+
+```{r echo = FALSE}
+dat <- sim_design(50, cx = list(class = c("online", "inperson")))
+dat$class <- factor(dat$class, levels = c("online", "inperson"))
+dat$class_c <- ifelse(dat$class == "online", 0, 1)
+dat <- sim_data(dat, exp(log(10) + log(1.5)*class_c), model = "poisson")
+dat <- rename(dat, "solved" = y)
+dat |> 
+    select(-lp) |> 
+    trim_df() |> 
+    mytab()
+```
+
+## Parameters intepretation - Categorical variable
+
+```{r, echo = FALSE}
+dat |> 
+    ggplot(aes(x = class, y = solved)) +
+    geom_point(position = position_jitter(width = 0.1)) +
+    geom_boxplot(aes(fill = class),
+                 show.legend = FALSE) +
+    ylab("Solved exercises") +
+    theme(axis.title.x = element_blank()) +
+    mytheme()
+```
+
+## Parameters intepretation - Categorical variable
+
+R by default set the categorical variables using **dummy-coding**. In this case we set the reference category to `online`.
+
+```{r}
+fit <- glm(solved ~ class, family = poisson(link = "log"), data = dat)
+summary(fit)
+```
+
+```{r, echo = FALSE}
+fitt <- broom::tidy(fit)
+```
+
+## Parameters intepretation - Categorical variable
+
+- Similarly to the previous example, the intercept is the expected number of solved exercises when the `class` is 0. Thus the expected number of solved exercises for online students.
+- the `classinperson` is the difference in log solved exercises between online and in person classes. In the response scale is the expected increase in the ratio of solved exercises. People doing in person classes solve `r exp(fitt$estimate[2])*100` of the exercises of people doing online classes
+
+```{r}
+c(coef(fit)["(Intercept)"], exp(coef(fit)["(Intercept)"]))
+c(coef(fit)["classinperson"], exp(coef(fit)["classinperson"]))
+```
+
+# Overdispersion
+
 ## Overdispersion
 
 **Overdispersion** concerns observing a greater variance compared to what would have been expected by the model.
 
-An estimate of the overdispersion can be done calculating the ratio of squared pearson residuals and the degrees of freedom of the model <!-- TODO add why -->.
+To understand **Overdispersion** we define the **scaled deviance** as:
 
-$$
-P = \frac{\sum_{i=1}^{n}(\frac{y_i - \hat y_i}{\sqrt{\hat y_i}})^2}{df}
-$$
-Without overdispersion the ratio is aproximately 1, with overdispersion the ratio is greater than 1.
+\begin{align*}
+D^{*} = \frac{D}{\phi} \\
+D = -2[\log(\mathcal{L}_{current}) - (\log\mathcal{L}_{sat})]
+\end{align*}
+
+Where $D$ is the deviance that we already defined and $\phi$ is the dispersion parameter of the distribution. For Binomial and Poisson models $\phi = 1$ and $D = D^{*}$. We know that $D^{*} \sim \chi^2_{n - p - 1}$.
+
+## Overdispersion
+
+Without knowing $\phi$, we can estimate it using:
+
+\begin{align*}
+\hat \phi = \frac{D}{n - p - 1}
+\end{align*}
+
+If the model is correctly specified for binomial and poisson models the ratio is equal to 1, of the ratio is $> 1$ there is evidence for overdispersion. In practical terms, if the residual deviance is higher than the residuals degrees of freedom, there is evidence for overdispersion.
+
+## Overdispersion
+
+We can compute the ratio between `fit$deviance / fit$df.residual` = `r fit$deviance / fit$df.residual`:
+
+```{r, echo = FALSE}
+summary(fit)
+```
 
 ## Testing overdispersion
 
-There are multiple ways of testing the overdispersion. The first is using the $P$ statistics computed in the slide before and calculate a p value based on the $\chi^2$ distribution with $df = n - p$ degrees of freedom with $n$ is the number of observations and $p$ the number of model coefficients. A p value lower than the $\alpha$ level suggest evidence for overdispersion.
+To formally test for overdispersion i.e. testing if the ratio is significantly different from 1 we can use the `performance::check_overdispersion()` function.
 
 ```{r, echo = TRUE}
-fit <- glm(y ~ x, data = dat, family = poisson())
-(overdisp <- sum(residuals(fit, type = "pearson")^2)/fit$df.residual) # > 1 evidence for overdispersion
 performance::check_overdispersion(fit)
 ```
 
-## Overdispersion intuition
+`r ref("Regression and Multilevel Models, (Gelman and Hill, 2007)", 6, "114-115")`
 
-If data are generated from a Poisson model, the mean $\mu = \lambda$ and the variance $\sigma^2 = \lambda$. For this reason the standardized (pearson) residuals should be normally distributed with mean 0 and standard deviation 1. In the presence of overdispersion, the residuals will be larger:
+## Overdispersion plot
 
-```{r}
+Pearson residuals are defined as:
+
+\begin{align*}
+r_p = \frac{y_i - \hat y_i}{\sqrt{V(\hat y_i)}} \\
+V(\hat y_i) = \sqrt{\hat y_i}
+\end{align*}
+
+Remember that the mean and the variance are the same in Poisson models. If the model is correct, the standardized residuals should be normally distributed with mean 0 and variance 1.
+
+## Overdispersion plot
+
+```{r, echo = FALSE, message = FALSE}
 dat <- sim_design(100, nx = list(x = runif(100)))
 
 dat$yp <- rpois(100, exp(log(5) + 0.2*dat$x))
@@ -183,11 +388,13 @@ plot_fit_over <- ggExtra::ggMarginal(plot_fit_over, margins = "y", type = "densi
 cowplot::plot_grid(plot_fit_pois, plot_fit_over)
 ```
 
-`r ref("Gelman e Hill (2006)", 6, 114)`
+`r ref("Regression and Multilevel Models, (Gelman \\& Hill, 2007)", 6, 114)`
 
-## Mean-variance relationship
+## Variance-mean relationship
 
-```{r}
+The overdispersion can be expressed also in terms of variance-mean ratio. In fact, when the ratio is 1, there is no evidence of overdispersion.
+
+```{r, echo = FALSE}
 vrm <- c(1, 2, 5, 10)
 
 dat <- data.frame(vrm = vrm)
@@ -213,19 +420,19 @@ dat |>
               aes(x = y, y = d)) +
     mytheme()
 ```
-
 ## Causes of overdispersion
 
 There could be multiple causes for overdispersion:
 
-- outliers or anomalous obervations that increases the observed variance
-- missing important variables in the model
+- the **phenomenon itself** cannot be modelled with a Poisson distribution
+- **outliers or anomalous obervations** that increases the observed variance
+- **missing important variables** in the model
 
 ## Outliers or anomalous data
 
 This (simulated) dataset contains $n = 30$ observations coming from a poisson model in the form $y = 1 + 2x$ and $n = 7$ observations coming from a model $y = 1 + 10x$.
 
-```{r}
+```{r, echo = FALSE}
 set.seed(222)
 
 dat <- sim_design(30, nx = list(x = runif(30), g = "Normal"))
@@ -269,132 +476,316 @@ performance::check_overdispersion(fit)
 
 ## Missing important variables in the model
 
-When important predictors in the model are missing, there could be more variance than expected from the Poisson model. For example, we have the relationship between number of symptoms during a month (`y`) and the self-report distress measure ($x$).
+Let's imagine to analyze again the dataset with the number of solved exercises. We have the effect of the `studyh` variable. In addition we have the effect of the `class` variable, without interaction.
 
-```{r}
-n <- 200
-dat <- sim_design(n/2, 
-                  nx = list(distress = runif(n/2)), 
-                  cx = list(group = c("g1", "g2")),
-                  contr.sum2)
+```{r, echo = FALSE}
+set.seed(2022)
+n <- 20
+dat <- sim_design(n, 
+                  nx = list(studyh = round(runif(n*2, 0, 100), 0)),
+                  cx = list(class = c("online", "inperson")))
 
-dat$x0 <- dat$distress - mean(dat$distress)
+dat$class <- factor(dat$class, levels = c("online", "inperson"))
+dat$class_c <- ifelse(dat$class == "online", 0, 1)
 
 b0 <- log(10)
-b1 <- 0.8
-b2 <- 2
+b1 <- log(2.5)
+b2 <- log(1.01)
 
-dat <- sim_data(dat, exp(b0 + b1*group_c + b2*distress), "poisson")
+dat <- sim_data(dat, exp(b0 + b1*class_c + b2*studyh), model = "poisson")
+dat <- rename(dat, "solved" = y)
 
-fit <- glm(y ~ distress * group, data = dat, family = "poisson")
+dat |> 
+    trim_df() |> 
+    mytab()
+```
 
-scat <- dat |> 
-    ggplot(aes(x = distress, y = y, color = group)) +
+## Missing important variables in the model
+
+We can also have a look at the data:
+
+```{r, echo = FALSE}
+class_eff <- dat |> 
+    ggplot(aes(x = class, y = solved, fill = class)) +
+    geom_boxplot(show.legend = FALSE) +
+    mytheme()
+
+studyh_eff <- dat |> 
+    ggplot(aes(x = studyh, y = solved, color = class)) +
     geom_point(size = 3) +
-    stat_smooth(method = "glm", 
-                se = FALSE,
-                method.args = list(family = poisson())) +
-    mytheme() +
-    theme(axis.title.y = element_blank(),
-          legend.title = element_blank())
+    mytheme()
 
-
-box <- dat |> 
-    ggplot(aes(x = y, fill = group)) +
-    geom_histogram(binwidth = 5,
-                   color = "black") +
-    mytheme() +
-    theme(legend.position = "none",
-          axis.title.x = element_blank(),
-          legend.title = element_blank()) +
-    ylab("Symptoms")
-
-box + scat
+class_eff + studyh_eff
 ```
 
 ## Missing important variables in the model
 
-Despite unlikely, let's imagine to model this data using a `y ~ distress` model ignoring that there are two groups. The `group` is missing thus the model is estimating the average relatioship between `y ~ distress` across groups.
-
-```{r, echo = TRUE}
-scat <- dat |> 
-    ggplot() +
-    geom_point(aes(x = distress, y = y, color = group),
-               size = 3,
-               show.legend = FALSE) +
-    stat_smooth(aes(x = distress, y = y),
-                method = "glm", 
-                color = "black",
-                se = FALSE,
-                method.args = list(family = poisson())) +
-    mytheme() +
-    theme(axis.title.y = element_blank(),
-          legend.title = element_blank())
-
-ggExtra::ggMarginal(scat, groupFill = TRUE, margins = "y")
-```
-
-## Missing important variables in the model
-
-Fitting the model without `group` will increase the observed variance creating a source of overdispersion:
+Now let's fit the model considering only `studyh` and ignoring the group:
 
 ```{r}
-fit <- glm(y ~ distress, data = dat, family = poisson(link = "log"))
+fit <- glm(solved ~ studyh, data = dat, family = poisson(link = "log"))
 summary(fit)
+```
+
+## Missing important variables in the model
+
+Essentially, we are fitting an average relationship across groups but the model ignore that the two groups differs, thus the observed variance is definitely higher beacuse we need two separate means to explain the `class` effect.
+
+```{r, echo = FALSE}
+dat |> 
+    add_predict(fit, se.fit = TRUE, type = "response") |> 
+    ggplot(aes(x = studyh, y = solved)) +
+    geom_point(aes(color = class), size = 3) +
+    geom_line(aes(x = studyh, y = fit)) +
+    geom_ribbon(aes(ymin = fit - 2*sqrt(fit),
+                    ymax = fit + 2*sqrt(fit)),
+                alpha = 0.5) +
+    mytheme()
+```
+
+## Missing important variables in the model
+
+By fitting the appropriate model, the overdispersion is no longer a problem:
+
+```{r}
+fit2 <- glm(solved ~ studyh + class, data = dat, family = poisson(link = "log"))
+summary(fit2)
+```
+
+## Missing important variables in the model
+
+```{r}
 performance::check_overdispersion(fit)
 ```
 
+```{r}
+performance::check_overdispersion(fit2)
+```
+
 ## Missing important variables in the model
 
-Fitting the correct model would solve the issue taking into account that the overdispersion is no longer present when the `group` is considered:
+Also the residuals plot clearly improved after including all relevant predictors:
 
-```{r}
-fit <- glm(y ~ distress + group, data = dat, family = poisson(link = "log"))
-summary(fit)
-performance::check_overdispersion(fit)
+```{r, echo = FALSE}
+(plot_resid(fit, type = "pearson") + mytheme()) + (plot_resid(fit2, type = "pearson") + mytheme())
 ```
 
 ## Why worring about overdispersion?
 
-Overdispersion is mainly problematic because of the influence on **parameters standard error**
+Before analyzing the two main strategies to deal with overdispersion, it is important to understand why it is very problematic.
+
+Despite the estimated parameters are not affected by overdispersion, the standard error are very underestimated as a function of the degree of overdispersion.
+
+Underestimated standard errors produce unrealistic precise parameters estimations inflating the type-1 error (i.e., parameters tends to be more significant than when overdispersion is considered)
+
+## Why worring about overdispersion?
+\label{summaryoverdispersion}
+
+The estimated overdispersion of `fit` is ~ `r fit$deviance / fit$df.residual`. The `summary()` function in R has a `dispersion` argument to check how model parameters are affected.
+
+```{r}
+phi <- fit$deviance / fit$df.residual
+summary(fit, dispersion = 1)$coefficients # the default
+summary(fit, dispersion = 2)$coefficients # the default
+summary(fit, dispersion = phi)$coefficients # the appropriate
+```
+
+## Why worring about overdispersion?
+
+By using multiple values for $\phi$ we can see the impact on the standard error:
+
+```{r, echo=FALSE}
+phi <- 1:20
+phil <- lapply(phi, function(x) data.frame(summary(fit, dispersion = x)$coefficients))
+names(phil) <- phi
+phid <- bind_rows(phil, .id = "phi")
+phid$param <- rownames(phid)
+phid$param <- ifelse(grepl("Intercept", phid$param), "Intercept", "studyh")
+
+phid |> 
+    mutate(phi = as.numeric(phi)) |> 
+    ggplot(aes(x = phi, y = Estimate)) +
+    geom_pointrange(aes(ymin = Estimate -2*Std..Error,
+                        ymax = Estimate +2*Std..Error)) +
+    facet_wrap(~param, scales = "free") +
+    scale_x_continuous(breaks = seq(1, 20, 2)) +
+    mytheme() +
+    xlab(latex2exp::TeX("$\\phi$"))
+```
 
 # Dealing with overdispersion
 
 ## Dealing with overdispersion
 
-If all the variables are included and no outliers are present, the phenomenon itself contains more variability respect to the Poisson model predictions. There are two main approaches to deal with the situation:
+If all the variables are included and there are no outliers, the phenomenon itself contains more variability compared to what predicted by the Poisson. There are two main approaches to deal with the situation:
 
-- quasi-poisson model
-- poisson-gamma model AKA negative-binomial model
+- **quasi-poisson** model
+- poisson-gamma model AKA **negative-binomial model**
 
 ## Quasi-poisson model
 
-The quasi-poisson model allow estimating an extra parameter that is the overdispersion
+The **quasi-poisson** model is essentially a poisson model that estimate the $\phi$ parameter and adjust the standard errors accordingly. Again, assuming to fit the `studyh` only model (with overdispersion):
 
 ```{r}
-rnb_with_mvr <- function(n, mean, mvr){
-    # mvr = v / mean
-    v <- mean * mvr
-    # v = mu + mu^2/size
-    size <- mean^2 / (v + mean)
-    msg <- sprintf("lambda = %.3f, var = %.3f, theta = %.3f",
-                   mean, v, size)
-    cat(msg)
-    rnbinom(n = n, mu = mean, size = size)
-}
-
-x <- rnb_with_mvr(1e6, 20, 1)
-y <- rpois(1e6, 20)
-
-summary(x)
-summary(y)
-
-mean(x)
-var(x)
-mean(y)
-var(y)
-
+fit <- glm(solved ~ studyh, data = dat, family = quasipoisson(link = "log"))
+summary(fit)
 ```
 
+## Quasi-poisson model
+
+The quasi-poisson model estimates the same parameter and adjust standard errors as we did on slide \ref{summaryoverdispersion}. All other parameters are the same.
+
+The quasi-poisson model is useful because it is a very simple way to deal with overdispersion.
+
+The variance ($V(\mu)$) of the Poisson model is no longer $\mu$ but $V(\mu) = \mu\phi$. When $\phi$ is close to 1, the quasi-poisson model is the same as a standard poisson model.      
+
+## Problems of Quasi-* model
+
+The main problem of quasi-* models is that they are not a specific distribution family and there is not a likelihood function. For this reason, we cannot perform model comparison the standard AIC/BIC. See \@ref(Ver_Hoef2007-jc) for an overview.
+
+## Negative-binomial model
+
+A negative binomial model is a separated random component with two parameters: the mean as in standard poisson model and the dispersion parameter. Similarly to the quasi-poisson model it estimates a dispersion parameter.
+
+Practically the negative-binomial model is constructed from a hierarchical model:
+
+\begin{align*}
+y_i \sim Poisson(\lambda_i) \\
+\lambda_i \sim Gamma(\mu_i, \phi)
+\end{align*}
+
+In this way, the Gamma distribution regulate the dispersion around the expected value under the poisson model.
+
+## Negative-binomial model
+
+The mean of the negative binomial distribution is $\lambda$ and the variance is $\lambda + \frac{\lambda^2}{\theta}$
+
+$$
+p(y_i; \mu_i, k) = \frac{\Gamma(y_i + k)}{\Gamma(y_i + 1)\Gamma(k)}\left(\frac{\mu_i}{\mu_i + k}\right)^{y_i} \left(1 - \frac{\mu_i}{\mu_i + k}\right)^k
+$$
+Where $k = 1/\phi$, $\Gamma()$ is the gamma function. The mean is $\mu_i$ and the variance is $\mu_i + \frac{\mu_i^2}{k}$
+
+## Negative-binomial model
+
+Compared to the Poisson model, the negative binomial allows for overdispersion estimating the parameter $\phi$ and compared to the quasi-poisson model the variance is not a linear increase of the mean ($V(\mu) = \phi\mu$) but have a quadratic relationship $V(\mu) = \mu + \mu^2/\phi$
+
+## Negative-binomial model
+
+We can use the `MASS` package to implement the negative binomial distribution using the `MASS::rnegbin()`:
+
+```{r, echo = FALSE}
+mu <- 10
+theta <- c(1, 5, 10, 100)
+
+nb <- expand_grid(mu = mu,
+                  theta = theta)
+
+nb$var <- with(nb, mu + mu^2/theta)
+
+nb$y <- map2(nb$mu, nb$theta, function(x, y) MASS::rnegbin(1e4, x, y))
+nb$facet <- factor(nb$theta, 
+                   labels = latex2exp::TeX(
+                       sprintf("$\\mu = %s$, $\\theta = %s$, $V(\\mu) = %s$", nb$mu, nb$theta, nb$var)
+                   )
+)
+
+nb |> 
+    unnest(y) |> 
+    mutate(yp = dpois(y, mu)) |> 
+    ggplot(aes(x = y)) +
+    geom_histogram(bins = 15, aes(y = ..density..)) +
+    facet_wrap(~facet, labeller = label_parsed, scales = "free") +
+    geom_line(aes(x = y, y = yp), color = "red") +
+    xlab("x") +
+    mytheme()
+```
+
+## Negative-binomial model
+
+The $\theta$ parameter is the estimated dispersion. To note, is not the same as $\phi$ in the quasi-poisson model. As $\theta$ increase, the overdispersion is reduced and the model is similar to a standard Poisson model.
+
+```{r, echo = FALSE}
+mu <- 10
+theta <- seq(20, 200, 0.1)
+v <- mu + mu^2/theta
+
+temp <- data.frame(mu, theta, v)
+
+temp |> 
+    ggplot(aes(x = theta, y = v)) +
+    geom_line() +
+    xlab(latex2exp::TeX("$\\theta$")) +
+    ylab(latex2exp::TeX("$V(\\mu)$")) +
+    ggtitle(latex2exp::TeX("$\\mu = 10$")) +
+    mytheme()
+```
+
+## Negative-binomial model
+
+For fitting a negative-binomial model we cannot use the `glm` function but we need to use the `MASS::glm.nb()` function. The syntax is almost the same but we do not need to specify the family because this function only fit negative-binomial models. Let's simulate some data coming from a negative binomial distribution.
+
+```{r, echo=FALSE}
+dat <- sim_design(100, nx = list(x = runif(100)))
+dat$lp <- with(dat, exp(log(10) + log(5)*x))
+dat$y <- MASS::rnegbin(nrow(dat), dat$lp, 10)
+
+dat |> 
+    ggplot(aes(x = y)) +
+    geom_histogram(fill = "lightblue",
+                   color = "black") +
+    mytheme() +
+    xlab("y") +
+    ylab("Count")
+```
+
+## Negative-binomial model
+
+We simulate a relationship `y ~ x` in the same way as the Poisson model but with a $\theta = 10$ 
+
+```{r, eval=FALSE}
+dat <- sim_design(100, nx = list(x = runif(100)))
+dat$lp <- with(dat, exp(log(10) + log(5)*x))
+dat$y <- MASS::rnegbin(nrow(dat), dat$lp, 10)
+```
+
+```{r, echo = FALSE}
+dat |> 
+    trim_df() |> 
+    mytab()
+```
+
+## Negative-binomial model
+
+Then we can fit the model:
+
+```{r}
+fit_nb <- MASS::glm.nb(y ~ x, data = dat)
+summary(fit_nb)
+```
+
+## Negative-binomial model
+
+We can fit also the standard Poisson model and compare the impact of the overdispersion:
+
+```{r, echo = FALSE}
+fit_p <- glm(y ~ x, data = dat, family = poisson(link = "log"))
+dat$yp <- fitted(fit_p)
+dat$ynb <- fitted(fit_nb)
+
+dat$vnb <- with(dat, ynb + ynb^2/fit_nb$theta)
+
+dat |> 
+    ggplot(aes(x = x, y = y)) +
+    geom_point() +
+    geom_line(aes(x = x, y = yp + sqrt(yp), color = "Poisson"), linewidth = 1) +
+    geom_line(aes(x = x, y = yp - sqrt(yp), color = "Poisson"), linewidth = 1) +
+    geom_line(aes(x = x, y = ynb + sqrt(vnb), color = "Negative Binomial"), linewidth = 1) +
+    geom_line(aes(x = x, y = ynb - sqrt(vnb), color = "Negative Binomial"), linewidth = 1) +
+    mytheme() +
+    theme(legend.position = "bottom",
+          legend.title = element_blank())
+```
+
+## Negative-binomial model
 
 ## References
