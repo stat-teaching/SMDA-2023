@@ -393,14 +393,19 @@ rnb <- function(n, mu, vmr, message = FALSE){
         if(message) message(msg)
         rpois(n, mu)
     }else{
-        # vmr = v / m
-        v <- mu * vmr
-        # v = mu + mu^2/phi
-        phi <- -(mu^2/(mu - v))
-        msg <- sprintf("y ~ NegBin(mu = %2.f, phi = %.2f), var = %.2f, vmr = %.2f", mu, phi, v, vmr)
+        res <- theta_from_vmr(mu, vmr)
+        msg <- sprintf("y ~ NegBin(mu = %2.f, theta = %.2f), var = %.2f, vmr = %.2f", mu, res$theta, res$v, vmr)
         if(message) message(msg)
-        MASS::rnegbin(n, mu, phi)
+        MASS::rnegbin(n, mu, res$theta)
     }
+}
+
+theta_from_vmr <- function(mu, vmr){
+    # vmr = v / m
+    v <- mu * vmr
+    # v = mu + mu^2/phi
+    theta <- -(mu^2/(mu - v))
+    list(theta = theta, v = v)
 }
 
 # plotting different type of residuals for (g)lm models

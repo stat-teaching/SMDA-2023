@@ -1,0 +1,33 @@
+\frametitle{Simulate NB data \texttt {\#extra}\footnote <.->{Using \texttt {vmr\ =\ 1} it will use the \texttt {rpois()} function}}
+\protect\hypertarget{simulate-nb-data-extra}{}
+If you want to try to simulate NB data you can use the
+\texttt{MASS::rnegbin(n,\ mu,\ theta)} function or the
+\texttt{rnb(n,\ mu,\ vmr)} custom function that could be more intuitive
+because requires \(\mu\) (i.e., the mean) and \texttt{vmr} that is the
+desired variance-mean ratio. Using \texttt{message\ =\ TRUE} it will
+tells the \(\theta\) value:
+
+\tiny
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{y }\OtherTok{\textless{}{-}} \FunctionTok{rnb}\NormalTok{(}\FloatTok{1e5}\NormalTok{, }\AttributeTok{mu =} \DecValTok{10}\NormalTok{, }\AttributeTok{vmr =} \DecValTok{7}\NormalTok{, }\AttributeTok{message =} \ConstantTok{TRUE}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+## y ~ NegBin(mu = 10, theta = 1.67), var = 70.00, vmr = 7.00
+\end{verbatim}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{nprint}\NormalTok{(}\AttributeTok{mu =} \FunctionTok{mean}\NormalTok{(y), }\AttributeTok{v =} \FunctionTok{var}\NormalTok{(y), }\AttributeTok{vmr =} \FunctionTok{var}\NormalTok{(y) }\SpecialCharTok{/} \FunctionTok{mean}\NormalTok{(y))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+##     mu      v    vmr
+##  9.975 69.287  6.946
+\end{verbatim}
+
+\normalsize

@@ -290,31 +290,24 @@ c(coef(fit)["classinperson"], exp(coef(fit)["classinperson"]))
 
 **Overdispersion** concerns observing a greater variance compared to what would have been expected by the model.
 
-To understand **Overdispersion** we define the **scaled deviance** as:
+The **overdispersion** $\phi$ can be estimated using Pearson Residuals:
 
 \begin{align*}
-D^{*} = \frac{D}{\phi} \\
-D = -2[\log(\mathcal{L}_{current}) - (\log\mathcal{L}_{sat})]
+\hat \phi = \frac{\sum_{i = 1}^n \frac{(y_i - \hat y_i)^2}{\hat y_i}}{n - p - 1}
 \end{align*}
 
-Where $D$ is the deviance that we already defined and $\phi$ is the dispersion parameter of the distribution. For Binomial and Poisson models $\phi = 1$ and $D = D^{*}$. We know that $D^{*} \sim \chi^2_{n - p - 1}$.
+
+Where the numerator is the sum of squared Pearson residuals, $n$ is the number of observations and $k$ the number of predictors. For standard Binomial and Poisson models $\phi = 1$.
+
+`r ref("Applied Regression Analysis and Generalized Linear Models, Fox (2016)", chapter = "15", page = "432")`
 
 ## Overdispersion
-
-Without knowing $\phi$, we can estimate it using:
-
-\begin{align*}
-\hat \phi = \frac{D}{n - p - 1}
-\end{align*}
 
 If the model is correctly specified for binomial and poisson models the ratio is equal to 1, of the ratio is $> 1$ there is evidence for overdispersion. In practical terms, if the residual deviance is higher than the residuals degrees of freedom, there is evidence for overdispersion.
 
-## Overdispersion
-
-We can compute the ratio between `fit$deviance / fit$df.residual` = `r fit$deviance / fit$df.residual`:
-
-```{r, echo = FALSE}
-summary(fit)
+```{r}
+P <- sum(residuals(fit, type = "pearson")^2)
+P / df.residual(fit) # nrow(fit$dat) - length(fit_p$coefficients)
 ```
 
 ## Testing overdispersion
@@ -399,7 +392,7 @@ vrm <- c(1, 2, 5, 10)
 
 dat <- data.frame(vrm = vrm)
 
-dat$y <- map(dat$vrm, function(x) rnb(1e5, 10, x))
+dat$y <- map(dat$vrm, function(x) rnb(1e5, mu = 10, vmr = x))
 
 dat$mvr_t <- factor(dat$vrm, labels = latex2exp::TeX(sprintf("\\frac{\\sigma^2}{\\mu} = %s", dat$vrm)))
 
@@ -420,6 +413,7 @@ dat |>
               aes(x = y, y = d)) +
     mytheme()
 ```
+
 ## Causes of overdispersion
 
 There could be multiple causes for overdispersion:
@@ -641,7 +635,7 @@ The variance ($V(\mu)$) of the Poisson model is no longer $\mu$ but $V(\mu) = \m
 
 ## Problems of Quasi-* model
 
-The main problem of quasi-* models is that they are not a specific distribution family and there is not a likelihood function. For this reason, we cannot perform model comparison the standard AIC/BIC. See \@ref(Ver_Hoef2007-jc) for an overview.
+The main problem of quasi-* models is that they are not a specific distribution family and there is not a likelihood function. For this reason, we cannot perform model comparison the standard AIC/BIC. See [@Ver_Hoef2007-jc] for an overview.
 
 ## Negative-binomial model
 
@@ -663,11 +657,36 @@ The mean of the negative binomial distribution is $\lambda$ and the variance is 
 $$
 p(y_i; \mu_i, k) = \frac{\Gamma(y_i + k)}{\Gamma(y_i + 1)\Gamma(k)}\left(\frac{\mu_i}{\mu_i + k}\right)^{y_i} \left(1 - \frac{\mu_i}{\mu_i + k}\right)^k
 $$
+
 Where $k = 1/\phi$, $\Gamma()$ is the gamma function. The mean is $\mu_i$ and the variance is $\mu_i + \frac{\mu_i^2}{k}$
 
 ## Negative-binomial model
 
 Compared to the Poisson model, the negative binomial allows for overdispersion estimating the parameter $\phi$ and compared to the quasi-poisson model the variance is not a linear increase of the mean ($V(\mu) = \phi\mu$) but have a quadratic relationship $V(\mu) = \mu + \mu^2/\phi$
+
+```{r, echo = FALSE}
+temp <- data.frame(
+    mu = 1:100,
+    theta = 10,
+    phi = 3
+)
+
+temp$vnb <- with(temp, mu + mu^2/theta)
+temp$vqp <- with(temp, mu*phi)
+
+temp <- pivot_longer(temp, c(vnb, vqp))
+
+temp |> 
+    mutate(name = ifelse(name == "vnb", "Negative Binomial", "Quasi-Poisson")) |> 
+    ggplot(aes(x = mu, y = value, color = name)) +
+    geom_line() +
+    mytheme() +
+    xlab(latex2exp::TeX("$\\mu$")) +
+    ylab(latex2exp::TeX("$\\V(\\mu)$")) +
+    theme(legend.title = element_blank(),
+          legend.position = "bottom")
+```
+
 
 ## Negative-binomial model
 
@@ -715,43 +734,56 @@ temp |>
     ggplot(aes(x = theta, y = v)) +
     geom_line() +
     xlab(latex2exp::TeX("$\\theta$")) +
-    ylab(latex2exp::TeX("$V(\\mu)$")) +
     ggtitle(latex2exp::TeX("$\\mu = 10$")) +
-    mytheme()
+    mytheme() +
+    scale_y_continuous(
+        # Features of the first axis
+        name = latex2exp::TeX("$V(\\mu)$"),
+        # Add a second axis and specify its features
+        sec.axis = sec_axis(trans=~./10, name=latex2exp::TeX("$\\frac{V(\\mu)}{\\mu} = \\phi$"))
+    )
 ```
 
 ## Negative-binomial model
 
-For fitting a negative-binomial model we cannot use the `glm` function but we need to use the `MASS::glm.nb()` function. The syntax is almost the same but we do not need to specify the family because this function only fit negative-binomial models. Let's simulate some data coming from a negative binomial distribution.
+For fitting a negative-binomial model we cannot use the `glm` function but we need to use the `MASS::glm.nb()` function. The syntax is almost the same but we do not need to specify the family because this function only fit negative-binomial models. Let's simulate some data coming from a negative binomial distribution with $\theta = 10$
+
+```{r, eval=FALSE}
+theta <- 10
+n <- 100
+b0 <- 10
+b1 <- 5
+dat <- sim_design(n, nx = list(x = runif(n)))
+dat$lp <- with(dat, exp(log(b0) + log(b1)*x))
+dat$y <- with(dat, MASS::rnegbin(n, lp, theta))
+```
+
+```{r, echo = FALSE}
+dat |> 
+    trim_df(2) |> 
+    mytab()
+```
+
+## Negative-binomial model
 
 ```{r, echo=FALSE}
 dat <- sim_design(100, nx = list(x = runif(100)))
 dat$lp <- with(dat, exp(log(10) + log(5)*x))
 dat$y <- MASS::rnegbin(nrow(dat), dat$lp, 10)
 
-dat |> 
+left <- dat |> 
     ggplot(aes(x = y)) +
     geom_histogram(fill = "lightblue",
                    color = "black") +
     mytheme() +
     xlab("y") +
     ylab("Count")
-```
+right <- dat |> 
+    ggplot(aes(x = x, y = y)) +
+    geom_point(size = 3) +
+    mytheme()
 
-## Negative-binomial model
-
-We simulate a relationship `y ~ x` in the same way as the Poisson model but with a $\theta = 10$ 
-
-```{r, eval=FALSE}
-dat <- sim_design(100, nx = list(x = runif(100)))
-dat$lp <- with(dat, exp(log(10) + log(5)*x))
-dat$y <- MASS::rnegbin(nrow(dat), dat$lp, 10)
-```
-
-```{r, echo = FALSE}
-dat |> 
-    trim_df() |> 
-    mytab()
+left + right
 ```
 
 ## Negative-binomial model
@@ -769,6 +801,8 @@ We can fit also the standard Poisson model and compare the impact of the overdis
 
 ```{r, echo = FALSE}
 fit_p <- glm(y ~ x, data = dat, family = poisson(link = "log"))
+fit_qp <- glm(y ~ x, data = dat, family = quasipoisson(link = "log"))
+
 dat$yp <- fitted(fit_p)
 dat$ynb <- fitted(fit_nb)
 
@@ -788,4 +822,29 @@ dat |>
 
 ## Negative-binomial model
 
+We can compare the coefficients fitting the Poisson, the Quasi-Poisson and the Negative-binomial model:
+
+```{r}
+fit_p <- glm(y ~ x, data = dat, family = poisson(link = "log"))
+fit_qp <- glm(y ~ x, data = dat, family = quasipoisson(link = "log"))
+car::compareCoefs(fit_nb, fit_p, fit_qp)
+```
+
+## Negative-binomial model (NB) vs Quasi-poisson (QP)
+
+- The NB has the likelihood function thus AIC, LRT and other likelihood-based metrics works compared to the QP
+- The NB assume a different mean-variance relationship thus estimated coefficients could be different to the P where QP produce the same estimates.
+- Both NB and QP estimate higher standard errors in the presence of overdispersion
+- If there is evidence of overdispersion, the important is to fit a model that take into account it
+
+## Simulate NB data `#extra`^[Using `vmr = 1` it will use the `rpois()` function]
+
+If you want to try to simulate NB data you can use the `MASS::rnegbin(n, mu, theta)` function or the `rnb(n, mu, vmr)` custom function that could be more intuitive because requires $\mu$ (i.e., the mean) and `vmr` that is the desired variance-mean ratio. Using `message = TRUE` it will tells the $\theta$ value:
+
+```{r, message = TRUE}
+y <- rnb(1e5, mu = 10, vmr = 7, message = TRUE)
+nprint(mu = mean(y), v = var(y), vmr = var(y) / mean(y))
+```
+
 ## References
+\footnotesize

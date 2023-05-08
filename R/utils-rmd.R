@@ -179,3 +179,9 @@ collapse_rows_df <- function(df, variable){
         mutate(!!quo_name(group_var) := ifelse(groupRow == 1, as.character(!! group_var), "")) %>%
         select(-c(groupRow))
 }
+
+nprint <- function(..., digits = 3){
+    dots <- list(...)
+    dots <- lapply(dots, round, digits)
+    print(unlist(dots))
+}
