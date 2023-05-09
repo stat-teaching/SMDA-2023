@@ -11,30 +11,30 @@
 #' date: "Updated on `r Sys.Date()`"
 #' ---
 #' 
-## ----setup, include=FALSE-----------------------------------------------------------------------------------------------
+## ----setup, include=FALSE------------------------------------------------------------------------------
 knitr::opts_chunk$set(echo = TRUE,
                       message = FALSE,
                       warning = FALSE,
                       dev = "svg")
 
 #' 
-## ----packages, message=FALSE, warning=FALSE-----------------------------------------------------------------------------
+## ----packages, message=FALSE, warning=FALSE------------------------------------------------------------
 devtools::load_all() # if using the rproject dowloaded from the slides
 # source("utils-glm.R") # if using a standard setup
 library(here)
 library(tidyr) # for data manipulation
 library(dplyr) # for data manipulation
 library(ggplot2) # plotting
-library(performance) # diagnostic
 library(car) # general utilities
-library(MuMIn) # model selection
+library(effects) # for extracting and plotting effects 
+library(emmeans) # for marginal effectss
 
 #' 
-## ----options, include = FALSE-------------------------------------------------------------------------------------------
+## ----options, include = FALSE--------------------------------------------------------------------------
 theme_set(theme_minimal(base_size = 15))
 
 #' 
-## ----script, echo=FALSE-------------------------------------------------------------------------------------------------
+## ----script, echo=FALSE--------------------------------------------------------------------------------
 ## Link in Github repo
 downloadthis::download_link(
   link = download_link("https://github.com/stat-teaching/SMDA-2023/blob/master/labs/lab9.R"),
@@ -61,7 +61,7 @@ downloadthis::download_link(
 #' 
 #' We need to set the **working directory** on the root of the course folder using `set.wd()`. Using R Projects is just necessary to open the `.RProj` file and the working directory will be automatically correctly selected.
 #' 
-## -----------------------------------------------------------------------------------------------------------------------
+## ------------------------------------------------------------------------------------------------------
 # relevant steps of the previous lab
 admission <- read.csv(here("data", "admission.csv"), header=TRUE)
 admission$rankc <- factor(admission$rank, levels = 1:4, labels = 1:4)
@@ -71,7 +71,7 @@ admission$rankc <- factor(admission$rank, levels = 1:4, labels = 1:4)
 #' 
 #' Here we fit the two 2-way interactions between `gpa`, `gre` and `rankc`. Let's start from only one interaction:
 #' 
-## -----------------------------------------------------------------------------------------------------------------------
+## ------------------------------------------------------------------------------------------------------
 # gpa * rankc + gre
 
 fit1 <- glm(admit ~ gre + gpa + rankc + gpa:rankc, family = binomial(link = "logit"), data = admission)
@@ -84,7 +84,7 @@ summary(fit1)
 #' 
 #' With interactions it is even more important and useful to plot the effects before anything else:
 #' 
-## -----------------------------------------------------------------------------------------------------------------------
+## ------------------------------------------------------------------------------------------------------
 plot(effects::allEffects(fit1))
 
 #' 
@@ -106,7 +106,7 @@ plot(effects::allEffects(fit1))
 #' 
 #' For complex interactions like this, a suggestion is to plot the effects (as we did before) and to estimate the individual slopes checking if the interpretation is correct:
 #' 
-## -----------------------------------------------------------------------------------------------------------------------
+## ------------------------------------------------------------------------------------------------------
 # emmeans is an options to estimate effects regardless the model parameters
 emm <- data.frame(emmeans::emtrends(fit1, ~rankc, var = "gpa"))
 emm
@@ -124,17 +124,17 @@ emm$gpa.trend[2] - emm$gpa.trend[1]
 #' 
 #' This is the main effect of the `rankc` without considering the other variables:
 #' 
-## -----------------------------------------------------------------------------------------------------------------------
+## ------------------------------------------------------------------------------------------------------
 plot(effects::effect("rankc", fit1))
 
 #' 
-## ---- out.width="100%", echo = FALSE------------------------------------------------------------------------------------
+## ---- out.width="100%", echo = FALSE-------------------------------------------------------------------
 knitr::include_graphics("img/main-effect-rankc.png")
 
 #' 
 #' However, in the presence of interactions, the odds ratio could be influenced by the `gpa` level where it is evaluated:
 #' 
-## ---- echo = FALSE------------------------------------------------------------------------------------------------------
+## ---- echo = FALSE-------------------------------------------------------------------------------------
 preds <- expand.grid(
     rankc = c("1", "2", "3", "4"),
     gpa = seq(0, 6, 0.01),
@@ -153,7 +153,7 @@ preds |>
 #' 
 #' Without interaction by definition the point at which I evaluate the `renkc` effect is not relevant.
 #' 
-## ---- echo = FALSE------------------------------------------------------------------------------------------------------
+## ---- echo = FALSE-------------------------------------------------------------------------------------
 fit_noint <- glm(admit ~ gre + gpa + rankc, family = binomial(link = "logit"), data = admission)
 preds <- expand.grid(
     rankc = c("1", "2", "3", "4"),
@@ -175,7 +175,7 @@ preds |>
 #' 
 #' To test the overall interaction we can use the `car::Anova()` function that reports main effects and interactions:
 #' 
-## -----------------------------------------------------------------------------------------------------------------------
+## ------------------------------------------------------------------------------------------------------
 car::Anova(fit1)
 
 #' 
@@ -183,7 +183,7 @@ car::Anova(fit1)
 #' 
 #' To note, the `car::Anova(fit1)` results for the interaction is just a likelihood ratio test comparing a model with the interaction vs a model without the interaction:
 #' 
-## -----------------------------------------------------------------------------------------------------------------------
+## ------------------------------------------------------------------------------------------------------
 fit_noint <- glm(admit ~ gre + gpa + rankc, family = binomial(link = "logit"), data = admission)
 
 anova(fit_noint, fit1, test = "LRT")
