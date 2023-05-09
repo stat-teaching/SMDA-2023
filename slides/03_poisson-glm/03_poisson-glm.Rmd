@@ -523,7 +523,7 @@ summary(fit)
 
 ## Missing important variables in the model
 
-Essentially, we are fitting an average relationship across groups but the model ignore that the two groups differs, thus the observed variance is definitely higher beacuse we need two separate means to explain the `class` effect.
+Essentially, we are fitting an average relationship across groups but the model ignore that the two groups differs, thus the observed variance is definitely higher because we need two separate means to explain the `class` effect.
 
 ```{r, echo = FALSE}
 dat |> 
@@ -631,7 +631,31 @@ The quasi-poisson model estimates the same parameter and adjust standard errors 
 
 The quasi-poisson model is useful because it is a very simple way to deal with overdispersion.
 
-The variance ($V(\mu)$) of the Poisson model is no longer $\mu$ but $V(\mu) = \mu\phi$. When $\phi$ is close to 1, the quasi-poisson model is the same as a standard poisson model.      
+The variance ($V(\mu)$) of the Poisson model is no longer $\mu$ but $V(\mu) = \mu\phi$. When $\phi$ is close to 1, the quasi-poisson model is the same as a standard poisson model. 
+
+## Quasi-poisson model
+
+Here we compare the expected variance ($\pm 2\sqrt{V(y_i)}$) of the Quasi-Poisson and Poisson models:
+
+```{r, echo = FALSE}
+fit2 <- update(fit, . ~ ., family = poisson())
+
+phi <- deviance(fit) / df.residual(fit)
+dat$yi <- fitted(fit)
+
+
+dat |> 
+    ggplot(aes(x = studyh, y = solved)) +
+    geom_point() +
+    geom_line(aes(x = studyh, color = "Poisson", y = yi + 2*sqrt(yi))) +
+    geom_line(aes(x = studyh, color = "Poisson", y = yi - 2*sqrt(yi))) +
+    geom_line(aes(x = studyh, color = "Quasi-Poisson", y = yi + 2*sqrt(yi * phi))) +
+    geom_line(aes(x = studyh, color = "Quasi-Poisson", y = yi - 2*sqrt(yi * phi))) +
+    mytheme() +
+    theme(legend.title = element_blank(),
+          legend.position = "bottom")
+```
+
 
 ## Problems of Quasi-* model
 
@@ -645,24 +669,28 @@ Practically the negative-binomial model is constructed from a hierarchical model
 
 \begin{align*}
 y_i \sim Poisson(\lambda_i) \\
-\lambda_i \sim Gamma(\mu_i, \phi)
+\lambda_i \sim Gamma(\mu, \frac{1}{\theta})
 \end{align*}
 
 In this way, the Gamma distribution regulate the dispersion around the expected value under the poisson model.
 
-## Negative-binomial model
+`r ref("Generalized linear models, Dunn (2018)", "10", "400")`
 
-The mean of the negative binomial distribution is $\lambda$ and the variance is $\lambda + \frac{\lambda^2}{\theta}$
+## Negative-binomial model^[There are multiple parametrizations of the negative-binomial distribution. The one used by `MASS` is in terms of poisson-gamma mixture see https://mc-stan.org/docs/2_20/functions-reference/nbalt.html]
+
+The Poisson-Gamma mixture can be expressed as:
 
 $$
-p(y_i; \mu_i, k) = \frac{\Gamma(y_i + k)}{\Gamma(y_i + 1)\Gamma(k)}\left(\frac{\mu_i}{\mu_i + k}\right)^{y_i} \left(1 - \frac{\mu_i}{\mu_i + k}\right)^k
+p(y; \mu, \theta) = \frac{\Gamma(y + \theta)}{\Gamma(\theta)\Gamma(y + 1)}\left(\frac{\mu}{\mu + \theta}\right)^{y} \left(\frac{\theta}{\mu + \theta}\right)^\theta
 $$
 
-Where $k = 1/\phi$, $\Gamma()$ is the gamma function. The mean is $\mu_i$ and the variance is $\mu_i + \frac{\mu_i^2}{k}$
+Where $\theta$ is the overdispersion parameter, $\Gamma()$ is the gamma function. The mean is $\mu$ and the variance is $\mu + \frac{\mu^2}{\phi}$. The $\theta$ is the inverse of the overdispersion in terms that as $1/\theta$ increase the data are more overdispersed. As $1/\theta$ approaches 0, the negative-binomial reduced to a Poisson model.
+
+`r ref("Generalized linear models, Dunn (2018)", "10", "400")`
 
 ## Negative-binomial model
 
-Compared to the Poisson model, the negative binomial allows for overdispersion estimating the parameter $\phi$ and compared to the quasi-poisson model the variance is not a linear increase of the mean ($V(\mu) = \phi\mu$) but have a quadratic relationship $V(\mu) = \mu + \mu^2/\phi$
+Compared to the Poisson model, the negative binomial allows for overdispersion estimating the parameter $\theta$ and compared to the quasi-poisson model the variance is not a linear increase of the mean ($V(\mu) = \theta\mu$) but have a quadratic relationship $V(\mu) = \mu + \mu^2/\theta$
 
 ```{r, echo = FALSE}
 temp <- data.frame(
@@ -748,7 +776,7 @@ temp |>
 
 For fitting a negative-binomial model we cannot use the `glm` function but we need to use the `MASS::glm.nb()` function. The syntax is almost the same but we do not need to specify the family because this function only fit negative-binomial models. Let's simulate some data coming from a negative binomial distribution with $\theta = 10$
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 theta <- 10
 n <- 100
 b0 <- 10
@@ -760,6 +788,7 @@ dat$y <- with(dat, MASS::rnegbin(n, lp, theta))
 
 ```{r, echo = FALSE}
 dat |> 
+    select(id, x, y) |> 
     trim_df(2) |> 
     mytab()
 ```
@@ -797,24 +826,46 @@ summary(fit_nb)
 
 ## Negative-binomial model
 
-We can fit also the standard Poisson model and compare the impact of the overdispersion:
+Here we compare the expected variance ($\pm 2\sqrt{V(y_i)}$) of the Negative binomial and Poisson models:
 
 ```{r, echo = FALSE}
 fit_p <- glm(y ~ x, data = dat, family = poisson(link = "log"))
 fit_qp <- glm(y ~ x, data = dat, family = quasipoisson(link = "log"))
+phi <- deviance(fit_p)/df.residual(fit_p)
 
 dat$yp <- fitted(fit_p)
 dat$ynb <- fitted(fit_nb)
 
 dat$vnb <- with(dat, ynb + ynb^2/fit_nb$theta)
+dat$vnb <- with(dat, ynb + ynb^2/fit_nb$theta)
+dat$vqp <- with(dat, yp + yp*phi)
 
 dat |> 
     ggplot(aes(x = x, y = y)) +
     geom_point() +
-    geom_line(aes(x = x, y = yp + sqrt(yp), color = "Poisson"), linewidth = 1) +
-    geom_line(aes(x = x, y = yp - sqrt(yp), color = "Poisson"), linewidth = 1) +
-    geom_line(aes(x = x, y = ynb + sqrt(vnb), color = "Negative Binomial"), linewidth = 1) +
-    geom_line(aes(x = x, y = ynb - sqrt(vnb), color = "Negative Binomial"), linewidth = 1) +
+    geom_line(aes(x = x, y = yp + 2*sqrt(yp), color = "Poisson"), linewidth = 1) +
+    geom_line(aes(x = x, y = yp - 2*sqrt(yp), color = "Poisson"), linewidth = 1) +
+    geom_line(aes(x = x, y = ynb + 2*sqrt(vnb), color = "Negative Binomial"), linewidth = 1) +
+    geom_line(aes(x = x, y = ynb - 2*sqrt(vnb), color = "Negative Binomial"), linewidth = 1) +
+    mytheme() +
+    theme(legend.position = "bottom",
+          legend.title = element_blank())
+```
+
+## Negative-binomial model
+
+Here we compare the expected variance ($\pm 2\sqrt{V(y_i)}$) of the three models:
+
+```{r, echo = FALSE}
+dat |> 
+    ggplot(aes(x = x, y = y)) +
+    geom_point() +
+    geom_line(aes(x = x, y = yp + 2*sqrt(yp), color = "Poisson"), linewidth = 1) +
+    geom_line(aes(x = x, y = yp - 2*sqrt(yp), color = "Poisson"), linewidth = 1) +
+    geom_line(aes(x = x, y = ynb + 2*sqrt(vnb), color = "Negative Binomial"), linewidth = 1) +
+    geom_line(aes(x = x, y = ynb - 2*sqrt(vnb), color = "Negative Binomial"), linewidth = 1) +
+    geom_line(aes(x = x, y = ynb + 2*sqrt(vqp), color = "Quasi-Poisson"), linewidth = 1) +
+    geom_line(aes(x = x, y = ynb - 2*sqrt(vqp), color = "Quasi-Poisson"), linewidth = 1) +
     mytheme() +
     theme(legend.position = "bottom",
           legend.title = element_blank())
