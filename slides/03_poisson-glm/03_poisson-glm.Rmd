@@ -64,9 +64,9 @@ Everything that we discussed for the binomial GLM is also relevant for the Poiss
 The Poisson distribution is defined as:
 
 $$
-p(y) = \frac{e^{-\mu} \mu^y}{y!}
+p(y; \lambda) = \frac{\lambda^y e^{-\lambda}}{y!}
 $$
-Where the mean is $\mu$ and the variance is $\mu$
+Where the mean is $\lambda$ and the variance is $\lambda$
 
 ## Poisson distribution
 
@@ -844,6 +844,48 @@ If you want to try to simulate NB data you can use the `MASS::rnegbin(n, mu, the
 ```{r, message = TRUE}
 y <- rnb(1e5, mu = 10, vmr = 7, message = TRUE)
 nprint(mu = mean(y), v = var(y), vmr = var(y) / mean(y))
+```
+
+## Deviance based pseudo-$R^2$
+
+The Deviance based pseudo-$R^2$ is computed from the ratio between the residual deviance and the null deviance^[https://en.wikipedia.org/wiki/Pseudo-R-squared]:
+
+$$
+R^2 = 1 - \frac{D_{current}}{D_{null}}
+$$
+`r ref("Applied Regression Analysis and Generalized Linear Models, Fox (2016)", "14.1", "383")`
+
+```{r}
+1 - fit_p$deviance/fit_p$null.deviance
+```
+
+
+## McFadden's pseudo-$R^2$
+
+The McFadden's pseudo-$R^2$ compute the ratio between the log-likelihood of the intercept-only (i.e., null) model and the current model [@McFadden1987-qq]:
+
+$$
+R^2 = 1 - \frac{\log(\mathcal{L_{current}})}{\log(\mathcal{L_{null}})}
+$$
+
+There is also the adjusted version that take into account the number of parameters of the model. In R can be computed manually or using the `performance::r2_mcfadden()`:
+
+```{r}
+performance::r2_mcfadden(fit_p)
+```
+
+## Nagelkerke's pseudo-$R^2$
+
+The Cox and Snell's [@Cox1989-ql] $R^2$ is defined as:
+
+$$
+R^2 = 1 - \left(\frac{\mathcal{L_{null}}}{\mathcal{L_{current}}}\right)^{\frac{2}{n}}
+$$
+
+Where Nagelkerke [@Nagelkerke1991-gr] provide a correction to set the range of values between 0 and 1.
+
+```{r}
+performance::r2_nagelkerke(fit_p)
 ```
 
 ## References
