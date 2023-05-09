@@ -16,7 +16,7 @@ devtools::load_all()
 lectures <- readRDS("objects/lectures.rds")
 ```
 
-# Statistical Methods And Data Analysis In Developmental Psychology
+# Statistical Methods And Data Analysis In Developmental Psychology (2022/2023)
 
 <!-- badges: start -->
 <!-- badges: end -->

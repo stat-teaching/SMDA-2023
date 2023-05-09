@@ -201,5 +201,9 @@ Thursday
 
 # Labs
 
-- **lab8**: [Rmd](labs//lab8.Rmd), [html](labs//lab8.html), [R
-  code](labs//lab8.R)
+- **lab10**: [Rmd](labs/lab10.Rmd), [html](labs/lab10.html), [R
+  code](labs/lab10.R)
+- **lab8**: [Rmd](labs/lab8.Rmd), [html](labs/lab8.html), [R
+  code](labs/lab8.R)
+- **lab9**: [Rmd](labs/lab9.Rmd), [html](labs/lab9.html), [R
+  code](labs/lab9.R)
