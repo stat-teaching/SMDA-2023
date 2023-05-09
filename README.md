@@ -1,7 +1,7 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# Statistical Methods And Data Analysis In Developmental Psychology
+# Statistical Methods And Data Analysis In Developmental Psychology (2022/2023)
 
 <!-- badges: start -->
 <!-- badges: end -->
