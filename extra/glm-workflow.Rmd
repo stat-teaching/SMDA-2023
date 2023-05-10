@@ -1,0 +1,49 @@
+---
+title: "GLM Workflow"
+author: "Filippo Gambarota"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Idea
+
+These documents summarize some useful steps when analyzing a dataset with GLMs. It is important to understand that there are no fixed and correct steps but some guidelines and procedure to analyze data. Avoid thinking about absolute cut-offs, strict rules, etc. Always think about what you are doing.
+
+# Steps
+
+## Importing data
+
+Despite seems a silly step, correctly importing data is fundamental.
+
+- Check the type of data that are you importing focusing on the extension e.g. `data.csv`, `data.xlsx` etc.
+- Find the appropriate function in R to import the dataset e.g. `read.csv()`
+- Read the function documentation `?read.csv()` to find important argument
+- Import the data and check for strange patterns
+
+## Pre-processing
+
+In this step is important to check if all variables are correctly interpreted by R. Numerical variables are treated as numbers? Do you want categorical variables to be factors? Are the factors levels order correctly specified according to what you want? 
+
+- Check for columns type and convert it to your desired format
+- Check for `NA` values, understand why and solve the issue (removing, inputing data, etc.)
+
+In this step you may also consider creating new columns as the result of data transformation such as mean-centering, standardizing or general tranformations.
+
+## Exploratory data analysis
+
+This is a crucial step. Explore your dataset using the appropriate summary statistics according to the variable.
+
+- frequency tables for categorical variables
+- mean/variance/median/range for numerical variables
+- plotting uni and bivariate relationships
+    - scatter plots
+    - boxplots
+    - ...
+
+You can use base R plots or `ggplot2`. There are multiple packages to perform these steps automatically bu the idea is to look at relationships among variables.
+
+Clearly identify your response variables (the `y`) and possible predictors and plot/summarise the relationships `y ~ predictors`.

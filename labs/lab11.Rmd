@@ -1,0 +1,73 @@
+---
+title: "Statistical Methods and Data Analysis in Developmental Psychology"
+subtitle: "Lab 11"
+author: "Filippo Gambarota"
+output: 
+    html_document:
+        code_folding: show
+        toc: true
+        toc_float: true
+        code_download: true
+date: "Updated on `r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      message = FALSE,
+                      warning = FALSE,
+                      dev = "svg")
+```
+
+```{r packages, message=FALSE, warning=FALSE}
+devtools::load_all() # if using the rproject dowloaded from the slides
+# source("utils-glm.R") # if using a standard setup
+library(here)
+library(tidyr) # for data manipulation
+library(dplyr) # for data manipulation
+library(ggplot2) # plotting
+library(car) # general utilities
+library(effects) # for extracting and plotting effects 
+library(emmeans) # for marginal effects
+```
+
+```{r options, include = FALSE}
+theme_set(theme_minimal(base_size = 15))
+```
+
+```{r script, echo=FALSE}
+## Link in Github repo
+downloadthis::download_link(
+  link = download_link("https://github.com/stat-teaching/SMDA-2023/blob/master/labs/lab11.R"),
+  button_label = "Download the R script",
+  button_type = "danger",
+  has_icon = TRUE,
+  icon = "fa fa-save",
+  self_contained = FALSE
+)
+```
+
+```{r loading-data}
+dat <- read.csv(here("data", "nwords.csv"))
+```
+
+# Overview
+
+This dataset `nwords.csv` represent a developmental psychology study investigating the factors that influence children language development. The dataset includes information about the number of words in a a language task, and some potential predictors: caregiver behavior, socioeconomic status, amount of time spent with the child during a week and the presence of a baby-sitter or not.
+
+- `child`: numeric variable representing the child ID number.
+- `timebonding`: numeric variable representing the average hours per week of child-parent activities
+- `nwords`: numeric variable representing the number of words produced by the child in a language task.
+- `caregiving`: numeric variable representing the caregiver's behavior in a parent-child interaction task, measured on a scale from 0 to 10
+- `ses`: categorical variable representing the family socioeconomic status, with three levels: "Low", "Middle", and "High"
+
+1. Importing data and overall check
+    - think about factors levels, scale of the numerical variables, etc.
+2. Exploratory data analysis between the predictors and the univariate relationships between predictors and the number of words
+3. Model fitting with `glm()` and `poisson` family starting from additive models and then adding the interactions.
+4. Model diagnostic of the chosen model
+    - overdispersion
+    - residuals
+    - outliers and influential points
+5. Interpreting the effects and plotting
+6. Fit a quasi-poisson and negative binomial version of the chosen model, and check how parameters are affected
+

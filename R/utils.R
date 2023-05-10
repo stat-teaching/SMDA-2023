@@ -42,7 +42,10 @@ purl_here <- function(file, output = NULL){
     }
 }
 
-
+compile_and_purl <- function(file){
+    rmarkdown::render(file, quiet = TRUE)
+    purl_here(file)
+}
 
 
 

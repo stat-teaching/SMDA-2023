@@ -196,7 +196,7 @@ summary(fit_s)
 plot_resid(fit_s, type = "pearson")
 
 # or in base R
-residualPlots(fit1)
+residualPlots(fit_s)
 
 #' 
 #' The majority of the distribution seems ok, but there are some values with very high residuals and the overdispersion is still present:

@@ -46,6 +46,10 @@ downloadthis::download_link(
 )
 ```
 
+```{r data, echo=FALSE}
+downloadthis::download_file(path = here("data", "tantrums.csv"))
+```
+
 ```{r loading-data}
 dat <- read.csv(here("data", "tantrums.csv"))
 ```
@@ -71,6 +75,7 @@ We want to predict the number of tantrums as a function of these predictors.
 4. Diagnostic
 5. Interpreting parameters
 6. Model selection
+7. What about interactions?
 
 # 1. Importing data and check
 
@@ -196,7 +201,7 @@ Let's check again overdispersion and pearson residuals:
 plot_resid(fit_s, type = "pearson")
 
 # or in base R
-residualPlots(fit1)
+residualPlots(fit_s)
 ```
 
 The majority of the distribution seems ok, but there are some values with very high residuals and the overdispersion is still present:
@@ -246,7 +251,7 @@ The previous observations seems to do not affect the estimated parameters but th
 Let's have a look at residuals now:
 
 ```{r}
-car::residualPlot(fit_no_out, type = "rstandard")
+car::residualPlot(fit_no_out)
 ```
 
 There is still some strange pattern but the majority of the distribution seems to be between -1 and 1.
@@ -330,3 +335,11 @@ fit_no_out <- update(fit_no_out, na.action = na.fail)
 MuMIn::dredge(fit_no_out, rank = "AIC")
 ```
 
+# 7. What about interactions?
+
+We can also have a look at interactions, try by yourself to explore interactions between numerical (`parent_skills` and `parent_se`) and categorical (`attachment` and `temperament`) variables. I'm only interested in 1 continuous variable interacting with 1 categorical variable.
+
+- fit a separate model for each interaction
+- interpret the model parameters and the analysis of deviance table (`car::` something :)) or using a model comparison (Likelihood Ratio Test) for testing the interaction
+- plot the model effects
+- comment the results

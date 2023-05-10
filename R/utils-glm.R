@@ -455,3 +455,20 @@ plot_resid <- function(fit,
                     method = "loess",
                     se = FALSE)
 }
+
+
+add_numeric_contrast <- function(data, append = TRUE){
+    data_fcts <- data[, sapply(data, is.factor)]
+    cs <- data.frame(model.matrix(~., data = data_fcts)[, -1])
+    lvs <- lapply(data_fcts, levels)
+    refs <- sapply(lvs, function(x) x[1])
+    lvs <- lapply(lvs, function(x) x[2:length(x)])
+    cs_names <- mapply(function(x, y) paste0(x, "_vs_", y), lvs, refs)
+    names(cs) <- unlist(cs_names)
+    
+    if(append){
+        cbind(data, cs)
+    }else{
+        cs
+    }
+}
