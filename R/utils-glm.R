@@ -472,3 +472,11 @@ add_numeric_contrast <- function(data, append = TRUE){
         cs
     }
 }
+
+var_from_theta <- function(mu, theta){
+    mu + mu^2/theta
+}
+
+count_na <- function(data){
+    sapply(data, function(x) sum(is.na(x)))
+}

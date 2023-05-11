@@ -62,7 +62,7 @@ This dataset `nwords.csv` represent a developmental psychology study investigati
 
 1. Importing data and overall check
     - think about factors levels, scale of the numerical variables, etc.
-2. Exploratory data analysis between the predictors and the univariate relationships between predictors and the number of words
+2. Exploratory data analysis of predictors and the relationships between predictors and the number of words
 3. Model fitting with `glm()` and `poisson` family starting from additive models and then adding the interactions.
 4. Model diagnostic of the chosen model
     - overdispersion
@@ -70,4 +70,232 @@ This dataset `nwords.csv` represent a developmental psychology study investigati
     - outliers and influential points
 5. Interpreting the effects and plotting
 6. Fit a quasi-poisson and negative binomial version of the chosen model, and check how parameters are affected
+
+# 1. Importing data and overall check
+
+```{r, eval = FALSE}
+dat <- read.csv("data/nwords.csv")
+```
+
+```{r}
+str(dat)
+```
+
+Check for `NA` values:
+
+```{r}
+count_na(dat) # from utils-glm.R
+
+# equivalent to sapply(dat, function(x) sum(is.na(x)))
+```
+
+Everything seems good, we do not have `NA` values.
+
+Let's convert categorical variables into factor setting the appropriate order:
+
+- `ses`: low, middle, high
+- `babysitter`: no, yes
+
+```{r}
+dat$ses <- factor(dat$ses, levels = c("low", "middle", "high"))
+dat$babysitter <- factor(dat$babysitter, levels = c("no", "yes"))
+
+levels(dat$ses)
+levels(dat$babysitter)
+```
+
+`timebonding` and `caregiving` are the two numerical predictors. Given that we are going to fit main effects and interactions and we want to interpret the intercept and test the interaction on a meaningful point, we create two centered versions of these variables:
+
+```{r}
+dat$timebonding0 <- dat$timebonding - mean(dat$timebonding)
+dat$caregiving0 <- dat$caregiving - mean(dat$caregiving)
+```
+
+Then we can see what happen to the variables:
+
+```{r}
+cols <- grepl("timebonding|caregiving", names(dat))
+lapply(dat[, cols], function(x) round(c(mean = mean(x), sd = sd(x)), 3))
+```
+
+# 2. Exploratory data analysis
+
+```{r}
+summary(dat)
+```
+
+Let's do some plotting of predictors:
+
+```{r}
+par(mfrow = c(2,2))
+hist(dat$timebonding)
+hist(dat$caregiving)
+barplot(table(dat$babysitter))
+barplot(table(dat$ses))
+```
+
+Comments?
+
+Also the response variable:
+
+```{r}
+hist(dat$nwords, probability = TRUE)
+lines(density(dat$nwords), col = "salmon", lwd = 2)
+```
+
+Let's plot the theoretical distributions, Poisson and Gaussian:
+
+```{r}
+m <- mean(dat$nwords)
+s <- sd(dat$nwords)
+xs <- seq(0, 50, 1)
+
+hist(dat$nwords, probability = TRUE, xlim = c(-10, 50), ylim = c(0, 0.1))
+curve(dnorm(x, m, s), add = TRUE, col = "green", lwd = 2)
+lines(xs, dpois(xs, m), col = "red", lwd = 2)
+lines(xs, dpois(xs, m), col = "red", lwd = 2)
+```
+
+Comments?
+
+Let's plot some bivariate distributions:
+
+```{r}
+# caregiving ~ timebonding
+r <- cor(dat$timebonding, dat$caregiving)
+plot(dat$timebonding, dat$caregiving, pch = 19)
+abline(lm(dat$caregiving ~ dat$timebonding), col = "red", lwd = 2)
+text(30, 2, label = paste("r =", round(r, 2)))
+```
+
+```{r}
+par(mfrow = c(1,2))
+boxplot(caregiving ~ ses, data = dat)
+boxplot(timebonding ~ ses, data = dat)
+```
+
+```{r}
+mosaicplot(table(dat$ses, dat$babysitter))
+# or
+barplot(table(dat$babysitter, dat$ses), col = c("red", "green"), beside = TRUE)
+legend(7,45, legend = c("no", "yes"), fill = c("red", "green"))
+```
+
+```{r}
+par(mfrow = c(1,2))
+boxplot(caregiving ~ babysitter, data = dat)
+boxplot(timebonding ~ babysitter, data = dat)
+```
+
+Then the relationships with the `nwords` variable:
+
+```{r}
+par(mfrow = c(2,2))
+plot(dat$timebonding, dat$nwords, pch = 19)
+plot(dat$caregiving, dat$nwords, pch = 19)
+boxplot(dat$nwords ~ dat$ses)
+boxplot(dat$nwords ~ dat$babysitter)
+```
+
+Comments?
+
+Finally some interactions plot (with `lm`):
+
+```{r, fig.width=10, fig.height=10}
+par(mfrow = c(2,1))
+colors <- c(low = "red", middle = "blue", high = "green")
+plot(dat$timebonding, dat$nwords, col = colors[dat$ses], pch = 19)
+lms <- lapply(split(dat, dat$ses), function(x) lm(nwords ~ timebonding, data = x))
+lapply(1:length(lms), function(i) abline(lms[[i]], col = colors[i], lwd = 2))
+
+plot(dat$caregiving, dat$nwords, col = colors[dat$ses], pch = 19)
+lms <- lapply(split(dat, dat$ses), function(x) lm(nwords ~ caregiving, data = x))
+lapply(1:length(lms), function(i) abline(lms[[i]], col = colors[i], lwd = 2))
+```
+
+```{r, fig.width=10, fig.height=10}
+par(mfrow = c(2,1))
+colors <- c(no = "orange", yes = "purple")
+
+plot(dat$timebonding, dat$nwords, col = colors[dat$babysitter], pch = 19)
+lms <- lapply(split(dat, dat$babysitter), function(x) lm(nwords ~ timebonding, data = x))
+lapply(1:length(lms), function(i) abline(lms[[i]], col = colors[i], lwd = 2))
+
+plot(dat$caregiving, dat$nwords, col = colors[dat$babysitter], pch = 19)
+lms <- lapply(split(dat, dat$babysitter), function(x) lm(nwords ~ caregiving, data = x))
+lapply(1:length(lms), function(i) abline(lms[[i]], col = colors[i], lwd = 2))
+```
+
+# 3. Model fitting with `glm()` and `poisson`
+
+Let's start by using an additive model:
+
+```{r}
+fit <- glm(nwords ~ timebonding + caregiving + babysitter + ses, family = poisson(link = "log"), data = dat)
+summary(fit)
+```
+
+And always plotting before anything else:
+
+```{r}
+plot(allEffects(fit))
+```
+
+Comments? How could you describe the results? Something different from the descriptive statistics?
+
+```{r fig.width=10, fig.height=10}
+car::residualPlots(fit)
+```
+
+Comments? Are we missing something?
+
+```{r}
+dat |> 
+    ggplot(aes(x = timebonding, y = nwords, color = ses)) +
+    geom_point() +
+    stat_smooth(method = "glm", method.args = list(family = poisson()), se = FALSE)
+```
+
+```{r}
+dat |> 
+    ggplot(aes(x = caregiving, y = nwords, color = ses)) +
+    geom_point() +
+    stat_smooth(method = "glm", method.args = list(family = poisson()), se = FALSE)
+```
+
+```{r}
+dat |> 
+    ggplot(aes(x = timebonding, y = nwords, color = babysitter)) +
+    geom_point() +
+    stat_smooth(method = "glm", method.args = list(family = poisson()), se = FALSE)
+```
+
+```{r}
+dat |> 
+    ggplot(aes(x = caregiving, y = nwords, color = babysitter)) +
+    geom_point() +
+    stat_smooth(method = "glm", method.args = list(family = poisson()), se = FALSE)
+```
+
+Let's add some interactions:
+
+```{r}
+fit2 <- glm(nwords ~ timebonding*ses + caregiving*ses + timebonding*babysitter + caregiving*babysitter, family = poisson(link = "log"), data = dat)
+summary(fit2)
+```
+
+```{r fig.width=10, fig.height=10}
+plot(allEffects(fit2))
+```
+
+```{r}
+car::Anova(fit2)
+```
+
+
+
+
+
+
+
 

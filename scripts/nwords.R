@@ -64,6 +64,8 @@ dat$timebonding0 <- dat$timebonding - mean(dat$timebonding)
 dat$caregiving0 <- dat$caregiving - mean(dat$caregiving)
 dat <- add_numeric_contrast(dat)
 
+theta <- 5 # expected vmr = var_from_theta(mean(dat$nwords), theta) / mean(dat$nwords)
+
 # true model nwords ~ caregiving + babysitter + timebonding*ses
 
 b0 <- log(20) # intercept
@@ -79,7 +81,8 @@ B <- c(b0, b1, b2, b3, b4, b5, b6, b7)
 
 X <- model.matrix(~caregiving0 + babysitter + timebonding0*ses, data = dat)
 dat$lp <- exp(X %*% B)
-dat$nwords <- rpois(nrow(dat), dat$lp)
+#dat$nwords <- rpois(nrow(dat), dat$lp)
+dat$nwords <- rnegbin(nrow(dat), dat$lp, theta)
 
 # check
 # fit <- glm(nwords ~ caregiving + babysitter + timebonding*ses, data = dat, family = poisson())
@@ -88,6 +91,6 @@ dat$nwords <- rpois(nrow(dat), dat$lp)
 # saving
 
 nwords <- dat |> 
-    select(id, timebonding, caregiving, ses, babysitter, nwords)
+    dplyr::select(id, timebonding, caregiving, ses, babysitter, nwords)
 
 write.csv(nwords, file = "data/nwords.csv", row.names = FALSE)
