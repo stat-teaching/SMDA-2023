@@ -29,9 +29,15 @@ Despite seems a silly step, correctly importing data is fundamental.
 In this step is important to check if all variables are correctly interpreted by R. Numerical variables are treated as numbers? Do you want categorical variables to be factors? Are the factors levels order correctly specified according to what you want? 
 
 - Check for columns type and convert it to your desired format
-- Check for `NA` values, understand why and solve the issue (removing, inputing data, etc.)
+- Check for `NA` values, understand why and solve the issue (removing, imputing data, etc.)
 
-In this step you may also consider creating new columns as the result of data transformation such as mean-centering, standardizing or general tranformations.
+In this step you may also consider creating new columns as the result of data transformation such as mean-centering, standardizing or general transformations.
+
+Useful functions:
+
+- `str()` for the dataset structure and variables class
+- `summary()` for quick summary statistics
+- `sapply(data, function(x) sum(is.na(x)))` how many NA values for each column
 
 ## Exploratory data analysis
 
@@ -46,4 +52,55 @@ This is a crucial step. Explore your dataset using the appropriate summary stati
 
 You can use base R plots or `ggplot2`. There are multiple packages to perform these steps automatically bu the idea is to look at relationships among variables.
 
-Clearly identify your response variables (the `y`) and possible predictors and plot/summarise the relationships `y ~ predictors`.
+Clearly identify your response variables (the `y`) and possible predictors and plot/summarise the relationships `y ~ predictors`. Also relationships between predictors are important.
+
+## Model fitting
+
+Choose the model that you want to fit and implement it using the `glm` function. The `family` and the `link` depends on the type of variable that you have.
+
+## Model diagnostic
+
+Model assumptions for GLMs are not always easy to check. For example, the distribution of residuals can be misleading using **raw** residuals or when using a the **binary** version of a Binomial GLM.
+
+Important diagnostics are:
+
+- pearson or deviance residuals
+- studentized residuals
+- hatvalues
+- cook distances and dfbetas
+
+Using these measures you can identify outliers, influential observations or strange patters such as relationship between residuals and fitted values/predictors, unxepected range of residuals (e.g., overdispersion).
+
+The residual deviance is also important to understand how the model performs compared to the null and saturated model.
+
+Some useful functions:
+
+- `influence.measures()` for all influence measures
+- `car::residualPlots()` for residuals (specify the type)
+- `car::influenceIndexPlot(vars=c("Cook", "Studentized", "hat"))` for the influence plots
+
+## Coefficients intepretation
+
+When interpreting parameters remember to how the model is parametrized:
+
+- are numerical variables centered or standardized?
+- which is the contrast coding for categorical variables? (e.g., dummy coding)
+- are there some interactions?
+
+When we have a lot of parameters and interactions interpreting each model coefficients can be problematic.
+
+With interactions it is useful to use model comparison (model with and without the interaction) or the `car::Anova()` function to have the overall effect. Then the `emmeans::emmeans()` function can extract the contrast that you need.
+
+Remember that coefficients can be interpreted both in the link-function scale and the response scale.
+
+Useful functions:
+
+- `car::Anova()`
+- `emmeans::emmeans()`
+- `predict()` to have model predictions in specific conditions
+- `margins::marginal_effects()` for marginal effects
+- `broom::tidy()` to extract model coefficients into a dataframe
+
+## Plotting
+
+Plotting is a crucial step especially with a lot of predictors and interactions. The most easy way is by using the `plot(effects::allEffects())` function.

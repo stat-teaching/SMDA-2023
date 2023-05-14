@@ -288,10 +288,6 @@ summary(fit2)
 plot(allEffects(fit2))
 ```
 
-```{r}
-car::Anova(fit2)
-```
-
 
 
 
