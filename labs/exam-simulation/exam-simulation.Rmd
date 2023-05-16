@@ -1,0 +1,196 @@
+---
+title: "Statistical Methods and Data Analysis in Developmental Psychology"
+subtitle: "Exam Simulation"
+author: "Prof Antonio Calcagnì, Dr. Filippo Gambarota"
+output: 
+    bookdown::pdf_document2:
+        toc: false
+params:
+    solutions: false
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+devtools::load_all()
+library(tidyverse)
+```
+
+```{r, echo = FALSE}
+load("anxiety.rda")
+struct <- data_struct(anxiety)
+```
+
+\newif\ifsol
+\sol`r ifelse(params$solutions, 'true', 'false')`
+
+The dataset `anxiety.rda` contains data about adolescents with or without anxiety disorders. The dataset contains the following variables:
+
+- `anx`: having (1) or not (0) the anxiety disorder
+- `selfesteem`: the self-esteem score from 0 (low self-esteem) to 10 (high self-esteem)
+- `socialnetwork`: the estimated size of the social network from 0 (very small) to 100 (big)
+- `age`: the age in years
+- `family`: If the family had ("yes") or not ("no") history of anxiety disorders
+
+The dataset can be loaded using `load()`. Make sure to check the dataset structure and whether categorical variables are interpreted as factors from R.
+
+# Problem: Identify the number of statistical units n and the type of variables
+
+**a)** `r struct$n - 10` observations, 2 categorical variables and 2 numeric variables
+**b)** `r struct$n` observations, `r struct$ncat` categorical variables and `r struct$nnum` numeric variables
+**c)** `r struct$n + 5` observations, 1 categorical variables and 4 numeric variables
+**d)** `r struct$n` observations, 5 categorical variables and 0 numeric variables
+
+```{r question1, results='asis', echo = FALSE, include = params$solutions}
+solution("b")
+```
+
+# Problem: Make an appropriate plot of univariate distributions of predictors response variable
+
+`r solution(eval = params$solutions)`
+
+```{r question2, include = params$solutions, results='hide', fig.keep = "none"}
+par(mfrow = c(2,3)) # we have 5 variables
+
+# numerical variables
+boxplot(anxiety$selfesteem, main = "Self Esteem") # or histogram
+boxplot(anxiety$socialnetwork, main = "Social Network") # or histogram
+boxplot(anxiety$age, main = "Social Network") # or histogram
+
+# categorical variables
+barplot(table(anxiety$anx), main = "anxiety")
+barplot(table(anxiety$family), main = "Family History anxiety")
+```
+
+# Problem: Calculate from observed data the odds ratio of having anxiety as a function of family anxiety history
+
+```{r question3, include = params$solutions, results='hide', fig.keep = "none"}
+pfamily_yes <- mean(anxiety$anx[anxiety$family == "yes"])
+pfamily_no <- mean(anxiety$anx[anxiety$family == "no"])
+
+(pfamily_yes / (1 - pfamily_yes)) / (pfamily_no / (1 - pfamily_no))
+```
+
+# Problem:  Define and fit an appropriate additive model to predict the probability of having anxiety as a function of `selfesteem` and `family`. Intepret the results.
+
+```{r question4, include = params$solutions, results='hide', fig.keep = "none"}
+fit <- glm(anx ~ family + selfesteem, family = binomial(link = "logit"), data = anxiety)
+summary(fit)
+```
+
+```{r include = FALSE}
+coefs <- coef(fit)
+```
+
+\ifsol
+The `(Intercept)` (`r print_beta(fit, "(Intercept)")`) is the log odds of having anxiety for adolescents without family history of anxiety and self esteem equal to 0. Converting to probabilities using the inverse of the link function (`plogis()`) the expected probability of anxiety is `r plogis(coefs[1])`.
+
+The `familyyes`(`r print_beta(fit, "familyyes")`) is the log odds ratio comparing the odds of having anxiety for people with and without family history, controlling for other predictors. Converting to the probability scale using `exp()` the odds ratio suggest that people with familiarity in anxiety disorders (compared to no familiarity) have `r exp(coefs["familyyes"])` the odds of having anxiety.
+
+The `selfesteem` (`r print_beta(fit, "selfesteem")`) is the increase in the log odds of having anxiety disorders for a unit increase in self esteem, controlling for other predictors. Converting to the probability scale, for a unit increase in self esteem the odds of having anxiety disorders decrease by a factor of `r exp(coefs["selfesteem"])`.
+
+In summary, having familiarity of anxiety disorders significantly increase the probability of having anxiety and as the self esteem increase, the probability of having anxiety decrease.
+\fi
+
+# Problem: From the fitted model, find the probability and the 95% confidence interval that a subject without anxiety familiarity and self esteem = 3 has axiety disorders.
+
+\ifsol
+We need to use the `predict()` function, extract the expected value and the standard error on the logit scale, calculate the confidence interval using the quantiles of the normal distribution and apply the inverse logit function.
+\fi
+
+```{r question5, include = params$solutions, results='hide', fig.keep = "none"}
+# dataset for predictions
+prs <- data.frame(
+    family = "no",
+    selfesteem = 3
+)
+
+preds <- predict(fit, prs, se.fit = TRUE)
+ci <- plogis(preds$fit + qnorm(c(0.025, 0.975)) * preds$se.fit)
+
+c(p = plogis(preds$fit), lower95 = ci[1], upper95 = ci[2])
+```
+
+# Problem: fit a model including also the social network effect and intepret the parameters of numerical predictors using the divide by 4 rule.
+
+```{r question6, include = params$solutions, results='hide', fig.keep = "none"}
+fit2 <- update(fit, . ~ . + socialnetwork)
+coefs <- coef(fit2)[c("selfesteem", "socialnetwork")] # only numerical variables
+coefs / 4
+```
+\ifsol
+The divide-by-4 rule is a way to quickly estimate the maximal difference in probability for a unit-increase of predictors. Thus the maximal effect of `selfesteem` is `r coefs[1]/4` and the maximal effect of `socialnetwork` is `r coefs[1]/4`
+\fi
+
+# Problem: perform a statistical test to compare the residual deviance of the null model, model with and model without the `socialnetwork` predictor and intepret the result.
+
+```{r question7, include = params$solutions, results='hide', fig.keep = "none"}
+fit0 <- glm(anx ~ 1, family = binomial(link = "logit"), data = anxiety)
+anova(fit0, fit, fit2, test = "LRT")
+```
+
+```{r include = FALSE}
+aa <- data.frame(anova(fit0, fit, fit2, test = "LRT"))
+```
+
+\ifsol
+The test to compare the residual deviance of two models is the likelihood ratio test and can be performed in R using the `anova(test = "LRT")` function. The ratio between deviances under the null hypothesis is distributed as a $\chi^2$ with $df$ the difference between the residual degrees of freedom of the models under comparison. The reduction in deviance for `fit` is `r aa[2, 4]` and the p value is `r aa[2, 5]`. When including `socialnetwork` the  further reduction in deviance is `r aa[3, 4]` and the p value is `r aa[3, 5]`. Thus including `socialnetwork` significantly reduce the residual deviance.
+\fi
+
+# Problem: extract the DFBETAs value from the model created in the previous step. Identify (if any) problematic observations (i.e., marked as outlier in all coefficients but the Intercept) using a cut-off of $2/\sqrt{n}$ ($n$ is the sample size) and intepret the results. In case of problematic observations re-fit the model without that observations and comment the results.
+
+```{r question8, include = params$solutions, results='hide', fig.keep = "none"}
+cutoff <- 2 / sqrt(nrow(anxiety))
+infl <- infl_measure(fit2) # from utils-glm.R
+is_out <- abs(infl[, 2]) > cutoff & abs(infl[, 3]) & abs(infl[, 4]) # outlier in all conditions
+
+anxiety[is_out, ]
+
+fit_no_out <- update(fit2, . ~ ., data = anxiety[!is_out, ])
+
+car::compareCoefs(fit2, fit_no_out, pvals = TRUE)
+```
+\ifsol
+DFBETAs quantifies the impact of removing a single observation in the estimated coefficients and standard errors. Observation with high DFBETA suggest that removing that observation impact the estimation of the parameter. Firstly we extract the DFBETAs using the `infl_measure()` from the `utils-glm.R` file. Then we compare each observation across coefficients and we mark the observation as problematic if the absolute value is greater than the cutoff in all coefficients (no Intercept). Then we fitted the model with and without that outliers assessing the estimates and p values. Clearly, removing the observations has a great impact on estimates and p values because the `family` and `selfesteem` effects are no longer statistically significant.
+\fi
+
+# Problem: The classification accuracy of the model created at Problem 6 (`anx ~ family + selfesteem + socialnetwork`) is:
+
+a) 0
+b) `r (1 - error_rate(fit2)) - 0.2`
+c) `r sum(anxiety$anx)`
+d) `r 1 - error_rate(fit2)`
+
+```{r question9, results='asis', echo = FALSE, include = params$solutions}
+solution("d")
+```
+
+```{r question9bis, include = params$solutions, results='hide', fig.keep = "none"}
+1 - error_rate(fit2) # from utils-glm.R
+
+# or manually
+pi <- ifelse(predict(fit2, type = "response") > 0.5, 1, 0)
+yi <- anxiety$anx
+
+mean((yi == 1 & pi == 1) | (yi == 0 & pi == 0))
+```
+
+\ifsol
+The classification accuracy is defined as the proportions of correct classifications of a logistic regression model using a threshold of 0.5. The `error_rate()` function compute the proportion of incorrect classifications.
+\fi
+
+# Problem: Fit the same model considered in the previous problem but using the median-centered self-esteem. How parameters intepretation change?
+
+```{r question10, include = params$solutions, results='hide', fig.keep = "none"}
+anxiety$selfesteem0 <- anxiety$selfesteem - median(anxiety$selfesteem)
+
+fit2_cen <- glm(anx ~ family + selfesteem0 + socialnetwork, 
+                family = binomial(link = "logit"), data = anxiety)
+summary(fit2_cen)
+
+car::compareCoefs(fit2, fit2_cen)
+```
+
+\ifsol
+Mean centering does not affect the overall model fit or regression coefficients but only the Intercept. Now the Intercept `r print_beta(fit2_cen, "(Intercept)")` is the expected log odds of having axiethy for people without familiarity, with social network 0 and a median value of self-esteem.
+\fi

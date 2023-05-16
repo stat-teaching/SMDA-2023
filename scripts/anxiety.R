@@ -1,9 +1,20 @@
-n <- 1e5
-age <- round(rnorm(n, 15, 1))
-fam_had_anx <- sample(c("yes", "no"), n, replace = TRUE, prob = c(0.3, 0.7))
+# developing anxiety disorders as a function of the
+# - anxiety familiarity (yes/no)
+# - age
+# - self esteem
+# - social network
 
-S <- diag(c(3, 3, 3)) %*% (0.5 + diag(1 - 0.6, nrow = 3)) %*% diag(c(3, 3, 3))
-X <- MASS::mvrnorm(n, mu = c(4, 5, 7), Sigma = S)
+n <- 1e5
+age <- round(runif(n, 12, 19))
+family <- sample(c("yes", "no"), n, replace = TRUE, prob = c(0.3, 0.7))
+
+vars <- c(4, 625)
+mus <- c(7, 40)
+
+S <- diag(sqrt(vars)) %*% rmat(0.6, 2) %*% diag(sqrt(vars))
+
+X <- data.frame(MASS::mvrnorm(n, mus, S))
+names(X) <- c("selfesteem", "socialnetwork")
 
 X <- data.frame(X)
 names(X) <- c("depression", "stress", "network")

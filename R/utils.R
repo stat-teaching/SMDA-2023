@@ -47,5 +47,33 @@ compile_and_purl <- function(file){
     purl_here(file)
 }
 
+rmat <- function(r, J){
+    r + diag(1 - r, nrow = J)
+}
 
+round_cut <- function(x, min, max){
+    x <- round(x)
+    x <- ifelse(x < min, min, x)
+    x <- ifelse(x > max, max, x)
+    x
+}
 
+center <- function(data, append = TRUE){
+    nums <- sapply(data, is.numeric)
+    centered <- lapply(data[, nums], function(x) x - mean(x))
+    names(centered) <- paste0(names(data)[nums], "0")
+    cbind(data, centered)
+}
+
+print_beta <- function(fit, b, onlyb = FALSE){
+    ss <- data.frame(summary(fit)$coefficients)
+    ss$ps <- ifelse(ss$Pr...z.. < 0.001, "< 0.001", round(ss$Pr...z.., 3))
+    id <- which(rownames(ss) == b)
+    if(!onlyb){
+        bs <- sprintf("$\\beta_{%s} = %.3f$, $SE = %.3f$, $z = %.3f$, $p = %s$",
+                      rownames(ss), ss$Estimate, ss$Std..Error, ss$Std..Error, ss$ps)   
+    }else{
+        bs <- sprintf("$\\beta_{%s} = %.3f$", rownames(ss), ss$Estimate)
+    }
+    bs[id]
+}

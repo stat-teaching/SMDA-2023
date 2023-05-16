@@ -185,3 +185,24 @@ nprint <- function(..., digits = 3){
     dots <- lapply(dots, round, digits)
     print(unlist(dots))
 }
+
+data_struct <- function(data){
+    list(n = nrow(data),
+         ncat = sum(sapply(data, function(x) sum(is.factor(x) | is.character(x)))),
+         nnum = sum(sapply(data, function(x) sum(is.numeric(x)))))
+}
+
+to0 <- function(x){
+    ifelse(x < 0, 0, x)
+}
+
+solution <- function(x = NULL, eval = TRUE){
+    if(eval){
+        if(!is.null(x)){
+            sol <- sprintf("\\textbf{\\textcolor{red}{%s}}", x)
+            cat("**Solution**: ", sol)
+        }else{
+            cat("**Solution**")
+        }
+    }
+}

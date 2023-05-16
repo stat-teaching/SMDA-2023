@@ -288,6 +288,33 @@ summary(fit2)
 plot(allEffects(fit2))
 ```
 
+# 4. Model fitting with `MASS::glm.nb()`
+
+There is still evidence for overdispersion, even after including all predictors and a series of interactions. Let's assume that this is our most complex model, we need to take into account the overdispersion:
+
+```{r}
+performance::check_overdispersion(fit2)
+
+fit3 <- MASS::glm.nb(nwords ~ timebonding*ses + caregiving*ses + timebonding*babysitter + caregiving*babysitter, data = dat)
+
+summary(fit3)
+```
+
+Now overdispersion is taken into account and standard errors are larger:
+
+```{r}
+car::compareCoefs(fit2, fit3)
+
+# test statistics for the poisson model
+
+data.frame(
+    poisson = fit2$coefficients/sqrt(diag(vcov(fit2))),
+    negative_binomial = fit3$coefficients/sqrt(diag(vcov(fit3)))
+)
+```
+
+
+
 
 
 
