@@ -46,6 +46,18 @@ downloadthis::download_link(
 )
 ```
 
+```{r data-down, echo=FALSE}
+## Link in Github repo
+downloadthis::download_file(
+  path = here::here("data", "dropout.csv"),
+  button_label = "Download the dataset",
+  button_type = "danger",
+  has_icon = TRUE,
+  icon = "fa fa-save",
+  self_contained = FALSE
+)
+```
+
 ```{r loading-data}
 dat <- read.csv(here("data", "dropout.csv"))
 ```
