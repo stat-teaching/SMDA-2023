@@ -27,7 +27,7 @@ library(dplyr) # for data manipulation
 library(ggplot2) # plotting
 library(car) # general utilities
 library(effects) # for extracting and plotting effects 
-library(emmeans) # for marginal effects
+library(emmeans) # for marginal means
 ```
 
 ```{r options, include = FALSE}
