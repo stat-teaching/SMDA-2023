@@ -1,0 +1,255 @@
+---
+title: "Intepreting Model Parameters"
+author: "Filippo Gambarota"
+output: 
+    html_document:
+        code_folding: show
+        toc: true
+        toc_float: true
+        code_download: true
+date: "Updated on `r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      message = FALSE,
+                      warning = FALSE,
+                      dev = "svg")
+```
+
+```{r packages, message=FALSE, warning=FALSE}
+devtools::load_all()
+library(here)
+library(tidyr) # for data manipulation
+library(dplyr) # for data manipulation
+library(ggplot2) # plotting
+library(effects) # for extracting and plotting effects 
+library(emmeans) # for marginal means
+```
+
+```{r options, include = FALSE}
+theme_set(theme_minimal(base_size = 15))
+```
+
+```{r data, include=FALSE}
+dat <- read.csv(here("data", "dropout.csv"))
+```
+
+# Model
+
+Using the `dropout.csv` dataset let's see the impact of estimating or not the interaction on interpreting model parameters.
+
+```{r, eval = FALSE}
+dat <- read.csv("data/dropout.csv")
+head(data)
+```
+
+Now I recode factors:
+
+```{r}
+dat$parenting <- factor(dat$parenting, levels = c("neglectful",
+                                                  "permissive",
+                                                  "authoritative",
+                                                  "authoritarian"))
+dat$academic <- factor(dat$academic, levels = c("low", "high"))
+
+levels(dat$parenting)
+levels(dat$academic)
+```
+
+Let's plot the raw data:
+
+```{r}
+dat |> 
+    group_by(parenting, academic) |> 
+    summarise(drop = mean(drop)) |> 
+    ggplot(aes(x = parenting, y = drop, color = academic, group = academic)) +
+    geom_point(size = 3) +
+    geom_line() +
+    theme_minimal(15) +
+    ggtitle("Empirical Data")
+```
+
+# General idea
+
+To interpret model parameters we need to understand:
+
+- which model we are estimating (`glm`, `lm`, link function, etc.)
+- the presence of interactions
+- type of variables (categorical vs numeric)
+
+The Intercept is always the expected value when all the predictors are set to 0. For categorical variables 0 is the reference level and for numerical variables 0 is the actual 0 value (that can be meaningful or not).
+
+# Model without interaction
+
+A model without interaction is assuming that the effect of one predictor is the same conditioning to other predictors.
+
+```{r}
+fit <- glm(drop ~ academic + parenting, data = dat, family = binomial(link = "logit"))
+summary(fit)
+```
+So the parameters here are:
+
+`(Intercept)` = estimated value when everything is 0
+
+```{r}
+plogis(coef(fit)["(Intercept)"])
+predict(fit, newdata = data.frame(parenting = "neglectful", academic = "low"),
+        type = "response")
+```
+
+Clearly all parameters are estimated values from the model, so not always they are close to the actual value calculated from the dataset.
+
+```{r}
+mean(dat$drop[dat$academic == "low" & dat$parenting == "neglectful"])
+```
+
+
+Crucially, other parameters are the "main effects" of `parenting`/`academic` without considering (i.e., averaging) the other. In other terms:
+
+- `academichigh` = overall difference `high - low` averaging across `parenting`. **Given that we are not estimating interactions, this difference is assumed to be the same for each parenting level**.
+
+In visual terms, the model is assuming this pattern:
+
+```{r, echo = FALSE}
+emmeans(fit,  ~parenting|academic) |> 
+    data.frame() |> 
+    ggplot(aes(x = parenting, y = emmean, color = academic, group = academic)) +
+    geom_point(size = 3) +
+    geom_line() +
+    theme_minimal(15)
+```
+
+The lines are parallel (estimated from the model, not the actual value) because we are not allowing the interaction.
+
+Let's compare the empirical data with model predictions:
+
+```{r, echo = FALSE}
+emm_no_int <- emmeans(fit,  ~parenting|academic, type = "response") |> 
+    data.frame() |> 
+    rename("drop" = prob) |> 
+    select(parenting, academic, drop) |> 
+    mutate(data = "empirical")
+
+emp_dat <- dat |> 
+    group_by(parenting, academic) |> 
+    summarise(drop = mean(drop)) |> 
+    mutate(data = "model")
+
+rbind(emm_no_int, emp_dat) |> 
+    ggplot(aes(x = parenting, y = drop, color = data, linetype = academic)) +
+    geom_point() +
+    geom_line(aes(group = interaction(data, academic)))
+
+```
+
+# Model with interaction
+
+Here the situation is different because we are estimating that differences between levels of one factor can differ according to another factor.
+
+```{r}
+fit1 <- glm(drop ~ academic * parenting, data = dat, family = binomial(link = "logit"))
+summary(fit1)
+```
+In this case the Intercept is still the estimated value when everything is 0 but we are assuming the interaction thus the value could be different than before. In fact, given that there is interaction, the value is closer to what we calculate from the dataset:
+
+```{r}
+plogis(coef(fit1)["(Intercept)"])
+mean(dat$drop[dat$academic == "low" & dat$parenting == "neglectful"])
+```
+
+In terms of model assumptions, now the two lines are no longer parallel (or at least we are allowing for non parallel lines).
+
+```{r}
+emmeans(fit1,  ~parenting|academic) |> 
+    data.frame() |> 
+    ggplot(aes(x = parenting, y = emmean, color = academic, group = academic)) +
+    geom_point(size = 3) +
+    geom_line() +
+    theme_minimal(15)
+```
+
+Everything in the same plot:
+
+```{r, echo = FALSE, fig.width=10, fig.height=10}
+emm_fit <- emmeans(fit,  ~parenting|academic) |> 
+    data.frame() |> 
+    mutate(model = "additive")
+
+emm_fit1 <- emmeans(fit1,  ~parenting|academic) |> 
+    data.frame() |> 
+    mutate(model = "interaction")
+
+emm_fit <- rbind(emm_fit, emm_fit1)
+
+emm_fit |> 
+    ggplot(aes(x = parenting, y = emmean)) +
+    geom_line(aes(group = interaction(model, academic),
+                  color = model,
+                  linetype = academic),
+              linewidth = 1) +
+    geom_point(aes(shape = model), size = 5) +
+    scale_color_manual(values = c("firebrick", "blue")) +
+    theme_minimal(15) +
+    annotate("label", x = 1.2, y = -1.6, label = "Intercept (no int)",
+             size = 5) +
+    annotate("label", x = 1.2, y = -1.1, label = "Intercept (int)",
+             size = 5)
+```
+
+Clearly, there the difference decrease if there is no interaction because the model without interaction is closer to the empirical data.
+
+```{r, echo = TRUE}
+# lets simulate a lot of data, not interaction
+dat <- sim_design(1e5, cx = list(x1 = c("a", "b"), x2 = c("c", "d")), contrasts = contr.sum2)
+dat <- sim_data(dat, plogis(qlogis(0.3) + log(1.5)*x1_c + log(3)*x2_c))
+
+head(dat)
+
+dat |> 
+    group_by(x1, x2) |> 
+    summarise(y = mean(y)) |> 
+    ggplot(aes(x = x1, color = x2, y = y)) +
+    geom_point() +
+    geom_line(aes(group = x2))
+```
+
+The actual interaction:
+
+```{r}
+# no interaction
+fit <- glm(y ~ x1 + x2, data = dat, family = binomial(link = "logit"))
+
+# interaction
+fit1 <- glm(y ~ x1 * x2, data = dat, family = binomial(link = "logit"))
+
+# intercept
+coef(fit)[1]
+coef(fit1)[1]
+```
+
+And the plot combining the two models:
+
+```{r, echo = FALSE}
+emm_fit <- emmeans(fit,  ~x1|x2) |> 
+    data.frame() |> 
+    mutate(model = "additive")
+
+emm_fit1 <- emmeans(fit1,  ~x1|x2) |> 
+    data.frame() |> 
+    mutate(model = "interaction")
+
+emm_fit <- rbind(emm_fit, emm_fit1)
+
+emm_fit |> 
+    ggplot(aes(x = x1, y = emmean, color = x2)) +
+    facet_wrap(~model) +
+    geom_point() +
+    geom_line(aes(group = x2)) +
+    theme_minimal(15)
+```
+
+
+
+
+
