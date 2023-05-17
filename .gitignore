@@ -54,3 +54,7 @@ rsconnect/
 exam/
 
 local-notes.md
+
+.DS_Store
+
+**/deprecated/

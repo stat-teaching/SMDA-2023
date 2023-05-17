@@ -40,15 +40,21 @@ create_slide_index <- function(){
 
 create_lab_index <- function(){
     labs <- list.files("labs/", 
-                       pattern = ".R|.html",
+                       pattern = ".Rmd|.html|.pdf",
                        recursive = TRUE, 
                        full.names = TRUE)
+    labs <- labs[!grepl("_sdata|exam", labs)]
     name <- unique(tools::file_path_sans_ext(basename(labs)))
     rmd <- labs[grepl(".Rmd", labs)]
-    r <- labs[grepl(".R$", labs)]
+    #r <- labs[grepl(".R$", labs)]
     html <- labs[grepl(".html", labs)]
     name <- gsub("_", " ", name)
-    sprintf("- **%s**: [Rmd](%s), [html](%s), [R code](%s)", name, rmd, html, r)
+    id <- readr::parse_number(name)
+
+    sprintf("- **%s**: [Rmd](%s), [html](%s)", 
+            name[order(id)], 
+            rmd[order(id)], 
+            html[order(id)])
 } 
 
 get_funs <- function(file){
