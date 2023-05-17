@@ -61,8 +61,9 @@ Let's plot the raw data:
 
 ```{r}
 dat |> 
-    group_by(parenting, academic) |> 
+    group_by(parenting, academic) |>
     summarise(drop = mean(drop)) |> 
+    mutate(drop = qlogis(drop)) |> 
     ggplot(aes(x = parenting, y = drop, color = academic, group = academic)) +
     geom_point(size = 3) +
     geom_line() +
@@ -122,6 +123,7 @@ emmeans(fit,  ~parenting|academic) |>
 
 The lines are parallel (estimated from the model, not the actual value) because we are not allowing the interaction.
 
+<!--
 Let's compare the empirical data with model predictions:
 
 ```{r, echo = FALSE}
@@ -142,6 +144,8 @@ rbind(emm_no_int, emp_dat) |>
     geom_line(aes(group = interaction(data, academic)))
 
 ```
+
+-->
 
 # Model with interaction
 
