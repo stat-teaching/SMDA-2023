@@ -1,5 +1,5 @@
 ---
-title: "Intepreting Model Parameters"
+title: "Interpreting Model Parameters"
 author: "Filippo Gambarota"
 output: 
     html_document:

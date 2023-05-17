@@ -1,7 +1,7 @@
 ---
 title: "Statistical Methods and Data Analysis in Developmental Psychology"
 subtitle: "Exam Simulation"
-author: "Prof Antonio Calcagnì, Dr. Filippo Gambarota"
+author: "Prof. Antonio Calcagnì, Dr. Filippo Gambarota"
 output: 
     bookdown::pdf_document2:
         toc: false
@@ -36,10 +36,10 @@ The dataset can be loaded using `load()`. Make sure to check the dataset structu
 
 # Problem: Identify the number of statistical units n and the type of variables
 
-**a)** `r struct$n - 10` observations, 2 categorical variables and 2 numeric variables
-**b)** `r struct$n` observations, `r struct$ncat` categorical variables and `r struct$nnum` numeric variables
-**c)** `r struct$n + 5` observations, 1 categorical variables and 4 numeric variables
-**d)** `r struct$n` observations, 5 categorical variables and 0 numeric variables
+a) `r struct$n - 10` observations, 2 categorical variables and 2 numeric variables
+b) `r struct$n` observations, `r struct$ncat` categorical variables and `r struct$nnum` numeric variables
+c) `r struct$n + 5` observations, 1 categorical variables and 4 numeric variables
+d) `r struct$n` observations, 5 categorical variables and 0 numeric variables
 
 ```{r question1, results='asis', echo = FALSE, include = params$solutions}
 solution("b")
@@ -192,5 +192,5 @@ car::compareCoefs(fit2, fit2_cen)
 ```
 
 \ifsol
-Mean centering does not affect the overall model fit or regression coefficients but only the Intercept. Now the Intercept `r print_beta(fit2_cen, "(Intercept)")` is the expected log odds of having axiethy for people without familiarity, with social network 0 and a median value of self-esteem.
+Mean centering does not affect the overall model fit or regression coefficients but only the Intercept. Now the Intercept `r print_beta(fit2_cen, "(Intercept)")` is the expected log odds of having anxiety for people without familiarity, with social network 0 and a median value of self-esteem.
 \fi
