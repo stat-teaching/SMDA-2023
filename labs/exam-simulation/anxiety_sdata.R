@@ -1,5 +1,6 @@
-# developing andatpiety disorders as a function of the
-# - andatpiety familiarity (yes/no)
+# %%d Updated on: 2023-05-19 %%d
+# developing anxiety disorders as a function of the
+# - anxiety familiarity (yes/no)
 # - age
 # - self esteem
 # - social network

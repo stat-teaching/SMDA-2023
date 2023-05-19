@@ -77,3 +77,20 @@ print_beta <- function(fit, b, onlyb = FALSE){
     }
     bs[id]
 }
+
+update_date <- function(folder){
+    regex <- "(?<=\\%\\%d )(.*?)(?=\\%\\%d)"
+    date <- paste("Updated on:", Sys.Date(), "")
+    files <- list.files(folder, 
+                        pattern = ".R$",
+                        full.names = TRUE, 
+                        recursive = TRUE)
+    for(i in 1:length(files)){
+        file_lines <- readLines(files[i])
+        if(any(stringr::str_detect(file_lines, pattern = regex))){
+            file_lines <- stringr::str_replace(file_lines, regex, date)
+            writeLines(file_lines, files[i])
+            cli::cli_alert_success(sprintf("Date for %s updated!", files[i]))
+        }
+    }
+}
